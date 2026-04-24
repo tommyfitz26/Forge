@@ -1,18 +1,7 @@
-// Next.js instrumentation hook — loads the right Sentry config per runtime.
-// Skip entirely when no DSN is set so @sentry/nextjs (which pulls in
-// @sentry/node → @opentelemetry/instrumentation with dynamic requires) never
-// enters the edge bundle — Vercel flags that as unsupported even on warnings.
+// Next.js instrumentation hook. No-op for now.
+// Sentry will be reinstalled and wired here in Phase 3 (see SPEC §15);
+// keeping it out of the bundle now avoids @sentry/node + @opentelemetry
+// dynamic requires that Vercel's deploy checker flags.
 export async function register() {
-  if (!process.env['SENTRY_DSN']) return;
-
-  if (process.env.NEXT_RUNTIME === 'nodejs') {
-    await import('./sentry.server.config');
-  }
-  if (process.env.NEXT_RUNTIME === 'edge') {
-    await import('./sentry.edge.config');
-  }
+  // no-op
 }
-
-// Intentionally NOT exporting `onRequestError` while Sentry is DSN-less.
-// Importing Sentry.captureRequestError at module top would drag @sentry/nextjs
-// into the edge bundle. Re-enable with a dynamic import once SENTRY_DSN is set.
