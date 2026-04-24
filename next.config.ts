@@ -1,6 +1,5 @@
 import type { NextConfig } from 'next';
 import path from 'path';
-import { withSentryConfig } from '@sentry/nextjs';
 
 // Derive the Supabase origin so CSP can whitelist it for fetch + WebSocket.
 // In dev, a missing value falls through to '*.supabase.co' — CSP still loads.
@@ -40,6 +39,13 @@ const csp = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   outputFileTracingRoot: path.join(__dirname),
+  // Opt middleware into Node runtime so it can use @supabase/ssr without
+  // hitting Vercel's edge-function module allowlist. Experimental in Next
+  // 15.2+, stable behavior for our single-user app. Cast around the types
+  // package not yet exposing the flag.
+  experimental: {
+    nodeMiddleware: true,
+  } as NextConfig['experimental'] & { nodeMiddleware: boolean },
   async headers() {
     return [
       {
@@ -71,16 +77,8 @@ const nextConfig: NextConfig = {
   },
 };
 
-// Only wrap with Sentry when credentials are present — avoids build-time
-// "missing auth token" warnings while we're DSN-less.
-const hasSentry = Boolean(process.env['SENTRY_DSN'] && process.env['SENTRY_AUTH_TOKEN']);
-
-const sentryOptions = {
-  silent: !process.env['CI'],
-  disableLogger: true,
-  automaticVercelMonitors: true,
-  ...(process.env['SENTRY_ORG'] ? { org: process.env['SENTRY_ORG'] } : {}),
-  ...(process.env['SENTRY_PROJECT'] ? { project: process.env['SENTRY_PROJECT'] } : {}),
-};
-
-export default hasSentry ? withSentryConfig(nextConfig, sentryOptions) : nextConfig;
+// Sentry will be wired back in Phase 3 — see instrumentation.ts + sentry.*.ts
+// files for the shape when we return to it. Keeping it out of the bundle for
+// now eliminates @sentry/node + @opentelemetry dynamic requires that Vercel's
+// edge checker trips on.
+export default nextConfig;

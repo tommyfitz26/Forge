@@ -1,4 +1,7 @@
-import 'server-only';
+// NOTE: no `server-only` import here. Middleware runs on Edge Runtime, which
+// does not set the `react-server` export condition — `server-only`'s default
+// resolution throws at deploy time. Middleware is server-by-construction, so
+// the guard would add no real protection anyway.
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };

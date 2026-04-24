@@ -1,14 +1,7 @@
-import * as Sentry from '@sentry/nextjs';
-
-// Next.js instrumentation hook — loads the right Sentry config per runtime.
-// Edge runtime uses the edge config; Node runtime uses the server config.
+// Next.js instrumentation hook. No-op for now.
+// Sentry will be reinstalled and wired here in Phase 3 (see SPEC §15);
+// keeping it out of the bundle now avoids @sentry/node + @opentelemetry
+// dynamic requires that Vercel's deploy checker flags.
 export async function register() {
-  if (process.env.NEXT_RUNTIME === 'nodejs') {
-    await import('./sentry.server.config');
-  }
-  if (process.env.NEXT_RUNTIME === 'edge') {
-    await import('./sentry.edge.config');
-  }
+  // no-op
 }
-
-export const onRequestError = Sentry.captureRequestError;
