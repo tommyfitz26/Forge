@@ -18,6 +18,8 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 // CSP — see SPEC §10.9. 'unsafe-inline' is required for Next.js hydration
 // scripts and Tailwind inline styles. Dev additionally needs 'unsafe-eval'.
+// `upgrade-insecure-requests` is prod-only — emitting it locally breaks
+// http://localhost by forcing an https upgrade against a non-TLS dev server.
 // Tightening to nonce-based CSP is a future enhancement (see Appendix D).
 const csp = [
   `default-src 'self'`,
@@ -31,7 +33,7 @@ const csp = [
   `object-src 'none'`,
   `base-uri 'self'`,
   `form-action 'self'`,
-  `upgrade-insecure-requests`,
+  ...(isDev ? [] : [`upgrade-insecure-requests`]),
 ].join('; ');
 
 const nextConfig: NextConfig = {
@@ -51,10 +53,17 @@ const nextConfig: NextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(self), microphone=(self), geolocation=()',
           },
-          {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=63072000; includeSubDomains; preload',
-          },
+          // HSTS: prod-only. Setting this on http://localhost poisons Safari's
+          // HSTS cache (keyed by host) so the browser then refuses plaintext
+          // localhost for the max-age — two years in this case.
+          ...(isDev
+            ? []
+            : [
+                {
+                  key: 'Strict-Transport-Security',
+                  value: 'max-age=63072000; includeSubDomains; preload',
+                },
+              ]),
         ],
       },
     ];
