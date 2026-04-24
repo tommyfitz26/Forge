@@ -12,7 +12,10 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:types": "supabase gen types typescript --linked --schema public 2>/dev/null > lib/types/db.ts",
+    "db:push": "supabase db push",
+    "db:new": "supabase migration new"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
