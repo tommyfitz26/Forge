@@ -1,0 +1,49 @@
+# dependencies
+node_modules
+.pnpm-store
+
+# env (never commit)
+.env
+.env.local
+.env.*.local
+
+# next
+.next
+out
+build
+next-env.d.ts
+
+# generated service worker (built by @serwist/next on next build)
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+
+# typescript
+*.tsbuildinfo
+
+# ide / os
+.DS_Store
+.idea
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# logs
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# testing
+coverage
+
+# vercel
+.vercel
+
+# supabase (local dev)
+supabase/.temp
+supabase/.branches
+
+# sentry
+.sentryclirc
