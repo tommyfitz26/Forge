@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next';
 import path from 'path';
+import { withSentryConfig } from '@sentry/nextjs';
 
 // Derive the Supabase origin so CSP can whitelist it for fetch + WebSocket.
 // In dev, a missing value falls through to '*.supabase.co' — CSP still loads.
@@ -70,4 +71,16 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Only wrap with Sentry when credentials are present — avoids build-time
+// "missing auth token" warnings while we're DSN-less.
+const hasSentry = Boolean(process.env['SENTRY_DSN'] && process.env['SENTRY_AUTH_TOKEN']);
+
+const sentryOptions = {
+  silent: !process.env['CI'],
+  disableLogger: true,
+  automaticVercelMonitors: true,
+  ...(process.env['SENTRY_ORG'] ? { org: process.env['SENTRY_ORG'] } : {}),
+  ...(process.env['SENTRY_PROJECT'] ? { project: process.env['SENTRY_PROJECT'] } : {}),
+};
+
+export default hasSentry ? withSentryConfig(nextConfig, sentryOptions) : nextConfig;
