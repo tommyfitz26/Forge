@@ -3,8 +3,10 @@ import { z } from 'zod';
 
 const EnvSchema = z.object({
   // Supabase
-  SUPABASE_URL: z.string().url(),
-  SUPABASE_ANON_KEY: z.string().min(1),
+  // URL + anon key are NEXT_PUBLIC_ because the browser client needs them bundled into
+  // client JS. The anon key is public by design — RLS is the security boundary.
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
   // Owner
