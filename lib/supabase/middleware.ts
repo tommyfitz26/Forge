@@ -13,8 +13,20 @@ import { env } from '@/lib/env';
 // Anything else requires a session AND email === OWNER_EMAIL per SPEC §14.
 const PUBLIC_PATHS = ['/login', '/auth/callback'];
 
+// API paths that authenticate themselves (QStash signature, Bearer token, …)
+// rather than relying on the session cookie.
+const SELF_AUTH_API_PREFIXES = ['/api/jobs/'];
+
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+function isSelfAuthApi(pathname: string) {
+  return SELF_AUTH_API_PREFIXES.some((p) => pathname.startsWith(p));
+}
+
+function isApiPath(pathname: string) {
+  return pathname.startsWith('/api/');
 }
 
 export async function updateSession(request: NextRequest) {
@@ -51,9 +63,20 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isPublic = isPublicPath(pathname);
+  const isApi = isApiPath(pathname);
 
-  // Not authenticated → redirect to /login (unless already on a public path).
+  // API paths that authenticate themselves (QStash-signed jobs, Bearer-token
+  // Shortcut endpoints in Phase 1d) bypass session auth — the route checks.
+  if (isSelfAuthApi(pathname)) {
+    return response;
+  }
+
+  // Not authenticated → API paths get a JSON 401; everything else redirects
+  // to /login.
   if (!user && !isPublic) {
+    if (isApi) {
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    }
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('next', pathname);
@@ -64,6 +87,9 @@ export async function updateSession(request: NextRequest) {
   // This is the SPEC §14 whitelist enforcement point.
   if (user && user.email !== env.OWNER_EMAIL) {
     await supabase.auth.signOut();
+    if (isApi) {
+      return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+    }
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.search = '?error=unauthorized';

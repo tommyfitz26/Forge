@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { UnsyncedBadge } from '@/components/layout/UnsyncedBadge';
 import { signOut } from './actions';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -27,6 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </Link>
           </div>
           <div className="flex items-center gap-3 text-sm text-neutral-500">
+            <UnsyncedBadge />
             <span className="hidden sm:inline">{email}</span>
             <form action={signOut}>
               <button
