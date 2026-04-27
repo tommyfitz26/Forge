@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/types/db';
 import { parsePrefix, heuristicTitle } from './parse';
 import { initialResearchStatus, type CaptureKind } from './kinds';
+import { runTask } from '@/lib/ai/run';
 import { logger } from '@/lib/logger';
 
 export type CaptureSource = 'web' | 'shortcut' | 'siri' | 'widget';
@@ -39,9 +40,32 @@ export async function persistCapture(
 ): Promise<PersistResult> {
   const raw = input.content;
   const prefix = parsePrefix(raw);
-  const kind: CaptureKind = prefix.matched ? prefix.kind : 'observation';
   const cleanedContent = prefix.matched ? prefix.stripped : raw;
-  const title = heuristicTitle(cleanedContent);
+
+  // SPEC §4.2: prefix wins (rule 1, no LLM call); otherwise classify with
+  // Haiku 4.5 (rule 2). On classifier error / off-schema output, fall back
+  // to observation + heuristic title (rule 4).
+  let kind: CaptureKind;
+  let title: string;
+  let classifierUsed = false;
+  if (prefix.matched) {
+    kind = prefix.kind;
+    title = heuristicTitle(cleanedContent);
+  } else {
+    classifierUsed = true;
+    try {
+      const result = await runTask('classify_capture', { content: cleanedContent });
+      kind = result.kind;
+      title = result.title.trim() || heuristicTitle(cleanedContent);
+    } catch (err) {
+      logger.warn('classify.fallback', {
+        err: err instanceof Error ? err.message : String(err),
+        userId: input.userId,
+      });
+      kind = 'observation';
+      title = heuristicTitle(cleanedContent);
+    }
+  }
 
   // captures.audio_duration_seconds is `int` per SPEC §6.1; Whisper and the
   // client timer both return floats.
@@ -80,6 +104,7 @@ export async function persistCapture(
     kind,
     source: input.source,
     prefixMatched: prefix.matched,
+    classifierUsed,
     hasAudio: input.audioDurationSeconds != null,
   });
 
