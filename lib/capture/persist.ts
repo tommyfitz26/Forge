@@ -4,6 +4,7 @@ import type { Database } from '@/lib/types/db';
 import { parsePrefix, heuristicTitle } from './parse';
 import { initialResearchStatus, type CaptureKind } from './kinds';
 import { runTask } from '@/lib/ai/run';
+import { enqueueResearch } from '@/lib/research/enqueue';
 import { logger } from '@/lib/logger';
 
 export type CaptureSource = 'web' | 'shortcut' | 'siri' | 'widget';
@@ -107,6 +108,13 @@ export async function persistCapture(
     classifierUsed,
     hasAudio: input.audioDurationSeconds != null,
   });
+
+  // SPEC §4.3 — auto-enqueue research for idea/research captures.
+  // Awaited because Vercel can shut the function down right after the response
+  // returns; enqueueResearch handles its own errors so this never throws.
+  if (kind === 'idea' || kind === 'research') {
+    await enqueueResearch(data.id);
+  }
 
   return { id: data.id, kind };
 }

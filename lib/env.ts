@@ -41,6 +41,12 @@ const EnvSchema = z.object({
   //   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
   SHORTCUT_API_TOKEN: z.string().min(32),
 
+  // Dev escape hatch for /api/jobs/* — when NODE_ENV !== 'production', the
+  // QStash signature verifier also accepts `Authorization: Bearer <token>`
+  // matching this value. Lets you curl jobs locally without ngrok. Optional;
+  // when unset, all dev requests must still be QStash-signed.
+  JOB_DEV_BEARER: z.string().optional(),
+
   // App
   NEXT_PUBLIC_APP_URL: z.string().url(),
   SENTRY_DSN: z.string().optional(),

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { enqueueResearch } from '@/lib/research/enqueue';
 import { logger } from '@/lib/logger';
 
 const IdSchema = z.object({ id: z.string().uuid() });
@@ -15,6 +16,30 @@ async function requireAuthedSupabase() {
   } = await supabase.auth.getUser();
   if (!user) throw new Error('Not signed in.');
   return { supabase, user };
+}
+
+// Manual retry from the detail page when the auto-research path failed
+// (or when the user wants to trigger research on a problem/observation).
+// Layer A in /api/jobs/research short-circuits if a research row already
+// exists, so duplicate clicks are safe.
+export async function retryResearch(id: string) {
+  const { id: validId } = IdSchema.parse({ id });
+  const { supabase } = await requireAuthedSupabase();
+
+  const { error } = await supabase
+    .from('captures')
+    .update({ research_status: 'pending', updated_at: new Date().toISOString() })
+    .eq('id', validId);
+  if (error) {
+    logger.error('capture.retry_research.failed', {
+      captureId: validId,
+      err: error.message,
+    });
+    throw new Error(error.message);
+  }
+
+  await enqueueResearch(validId);
+  revalidatePath(`/capture/${validId}`);
 }
 
 export async function promoteToSerious(id: string) {
