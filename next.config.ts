@@ -39,12 +39,7 @@ const csp = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   outputFileTracingRoot: path.join(__dirname),
-  // Opt middleware into Node runtime so it can use @supabase/ssr without
-  // hitting Vercel's edge-function module allowlist. Experimental in Next
-  // 15.2+, stable behavior for our single-user app. Cast around the types
-  // package not yet exposing the flag.
   experimental: {
-    nodeMiddleware: true,
     // Server Actions default to a 1MB body cap, but photo uploads in
     // app/(app)/capture/actions.ts:createPhotoCapture pre-validate up to
     // MAX_PHOTO_BYTES (15MB). Match the cap so the action itself can receive
@@ -53,7 +48,7 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '15mb',
     },
-  } as NextConfig['experimental'] & { nodeMiddleware: boolean },
+  },
   async headers() {
     return [
       {
