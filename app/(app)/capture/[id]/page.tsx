@@ -6,7 +6,12 @@ import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { KindBadge, StateBadge } from '@/components/ui/badge';
 import { StateControls } from './StateControls';
-import type { CaptureKind, CaptureState } from '@/lib/capture/kinds';
+import { ResearchPanel } from './ResearchPanel';
+import type {
+  CaptureKind,
+  CaptureState,
+  ResearchStatus,
+} from '@/lib/capture/kinds';
 
 const SIGNED_URL_TTL_SECONDS = 3600;
 
@@ -19,7 +24,7 @@ export default async function CaptureDetail({ params }: { params: Params }) {
   const { data: capture, error } = await supabase
     .from('captures')
     .select(
-      'id, title, kind, state, content, created_at, updated_at, archive_reason, source',
+      'id, title, kind, state, content, created_at, updated_at, archive_reason, source, research_status',
     )
     .eq('id', id)
     .single();
@@ -27,6 +32,14 @@ export default async function CaptureDetail({ params }: { params: Params }) {
   if (error || !capture) {
     notFound();
   }
+
+  const { data: research } = await supabase
+    .from('research')
+    .select(
+      'competitors, market_context, recent_news, angles, confidence, sources_count, generated_at',
+    )
+    .eq('capture_id', id)
+    .maybeSingle();
 
   const { data: attachments } = await supabase
     .from('attachments')
@@ -111,6 +124,12 @@ export default async function CaptureDetail({ params }: { params: Params }) {
           <span className="font-medium">Archive reason:</span> {capture.archive_reason}
         </div>
       )}
+
+      <ResearchPanel
+        captureId={capture.id}
+        status={(capture.research_status ?? 'pending') as ResearchStatus}
+        research={research ?? null}
+      />
 
       <div className="border-t border-neutral-200 pt-6 dark:border-neutral-800">
         <StateControls id={capture.id} state={capture.state as CaptureState} />

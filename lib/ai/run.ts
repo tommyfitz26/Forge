@@ -1,8 +1,14 @@
 import 'server-only';
+import type Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { getAnthropic } from './anthropic';
 import { loadPrompt } from './prompts';
 import { TASKS, type TaskName } from './tasks';
+import {
+  extractText,
+  extractTerminalToolInput,
+  type ContentBlock,
+} from './extract-tool-output';
 import { createServiceClient } from '@/lib/supabase/service';
 import { env } from '@/lib/env';
 import { logger } from '@/lib/logger';
@@ -26,6 +32,9 @@ export class TaskValidationError extends Error {
 const STRICTER_RETRY_INSTRUCTION =
   'Your previous response could not be parsed as the required JSON. Respond again with ONLY valid JSON matching the exact shape specified — no prose, no code fences, no commentary.';
 
+const TERMINAL_TOOL_RETRY_INSTRUCTION = (toolName: string) =>
+  `Your previous response did not call ${toolName}. Continue from where you stopped, then call ${toolName} exactly once as your final action with the complete structured payload.`;
+
 async function monthToDateCostUsd(): Promise<number> {
   // SPEC §11.2: pre-call check against MAX_MONTHLY_COST_USD. UTC month — the
   // cutover instant doesn't matter for a monthly cap.
@@ -44,14 +53,6 @@ async function monthToDateCostUsd(): Promise<number> {
     return 0;
   }
   return (data ?? []).reduce((sum, row) => sum + Number(row.cost_usd ?? 0), 0);
-}
-
-function extractText(content: Array<{ type: string; text?: string }>): string {
-  return content
-    .filter((b) => b.type === 'text')
-    .map((b) => b.text ?? '')
-    .join('')
-    .trim();
 }
 
 function tryParseJson(raw: string): unknown {
@@ -83,16 +84,25 @@ export async function runTask<T extends TaskName>(
   const SYSTEM_BASELINE =
     "You are Forge, a thinking partner for a single user developing startup ideas and thinking through problems. Your stance is 'skeptical friend': you pressure-test ideas, surface holes, and ask the uncomfortable question before offering support. You avoid motivational filler. You are brief. You always respond in the exact JSON shape specified below.";
 
+  const usesTerminalTool = 'terminalToolName' in def && typeof (def as { terminalToolName?: string }).terminalToolName === 'string';
+  const terminalToolName = usesTerminalTool
+    ? (def as { terminalToolName: string }).terminalToolName
+    : null;
+  const taskTools =
+    'tools' in def ? ((def as { tools?: unknown[] }).tools ?? null) : null;
+
   const baseRequest = {
     model: def.model,
     max_tokens: def.maxTokens,
     temperature: def.temperature,
     system: SYSTEM_BASELINE,
+    ...(taskTools ? { tools: taskTools } : {}),
   };
 
   let raw = '';
   let totalCostUsd = 0;
   let lastIssues: z.ZodIssue[] | null = null;
+  let lastTerminalCallMissing = false;
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const messages =
@@ -101,14 +111,28 @@ export async function runTask<T extends TaskName>(
         : [
             { role: 'user' as const, content: userPrompt },
             { role: 'assistant' as const, content: raw },
-            { role: 'user' as const, content: STRICTER_RETRY_INSTRUCTION },
+            {
+              role: 'user' as const,
+              content:
+                lastTerminalCallMissing && terminalToolName
+                  ? TERMINAL_TOOL_RETRY_INSTRUCTION(terminalToolName)
+                  : STRICTER_RETRY_INSTRUCTION,
+            },
           ];
 
     const started = Date.now();
-    const resp = await anthropic.messages.create({ ...baseRequest, messages });
+    // SDK params type doesn't union server tools (web_search) with custom
+    // tools cleanly; we intentionally pass both shapes — the API accepts them.
+    // Cast keeps the non-streaming Message return type inferred correctly.
+    const params = {
+      ...baseRequest,
+      messages,
+    } as unknown as Anthropic.Messages.MessageCreateParamsNonStreaming;
+    const resp: Anthropic.Messages.Message = await anthropic.messages.create(params);
     const elapsedMs = Date.now() - started;
 
-    raw = extractText(resp.content as Array<{ type: string; text?: string }>);
+    const blocks = resp.content as ContentBlock[];
+    raw = extractText(blocks);
 
     const inputTokens = resp.usage?.input_tokens ?? 0;
     const outputTokens = resp.usage?.output_tokens ?? 0;
@@ -120,6 +144,7 @@ export async function runTask<T extends TaskName>(
     logger.info('task.call', {
       task,
       attempt,
+      mode: terminalToolName ? 'tool' : 'json',
       inputTokens,
       outputTokens,
       callCostUsd: Number(callCost.toFixed(6)),
@@ -127,13 +152,29 @@ export async function runTask<T extends TaskName>(
     });
 
     let parsed: unknown;
-    try {
-      parsed = tryParseJson(raw);
-    } catch {
-      lastIssues = [
-        { code: 'custom', path: [], message: 'Output was not valid JSON' } as z.ZodIssue,
-      ];
-      continue;
+    if (terminalToolName) {
+      parsed = extractTerminalToolInput(blocks, terminalToolName);
+      if (parsed === undefined) {
+        lastTerminalCallMissing = true;
+        lastIssues = [
+          {
+            code: 'custom',
+            path: [],
+            message: `Model did not call terminal tool ${terminalToolName}`,
+          } as z.ZodIssue,
+        ];
+        continue;
+      }
+      lastTerminalCallMissing = false;
+    } else {
+      try {
+        parsed = tryParseJson(raw);
+      } catch {
+        lastIssues = [
+          { code: 'custom', path: [], message: 'Output was not valid JSON' } as z.ZodIssue,
+        ];
+        continue;
+      }
     }
 
     const result = def.outputSchema.safeParse(parsed);
