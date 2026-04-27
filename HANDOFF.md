@@ -50,86 +50,120 @@
 | 1d | iOS Shortcut endpoint (Bearer auth) | ✅ Merged (PR #4) |
 | 1e | Photo capture (file upload + caption) | ✅ Merged (PR #5) |
 | **Phase 1** | **All capture surfaces (text/voice/photo/Shortcut + classify)** | **✅ Shipped** |
-| **2a** | **Research jobs (Sonnet 4.6 + web_search + QStash)** | **⏳ Up next — pre-work blocked on user (Upstash + domain)** |
+| 2a | Research jobs (Sonnet 4.6 + web_search + QStash) | 🟡 Code merged (PR #6) — **unverified, blocked by middleware bug below** |
+| **Hotfix** | **Next.js 16 upgrade — unblock forge.mom production deploy** | **🔴 Active. Branch `upgrade-next-16` not yet created. PR #7 (Edge attempt) open and should be CLOSED, not merged.** |
 | 2b | Daily nudges (Web Push + cron) | ⏳ Not started |
 | 2c | Weekly Socratic review (Resend) | ⏳ Not started |
 
 ---
 
-## Active item — Phase 2a kickoff (research jobs)
+## Active item — Next.js 16 upgrade to unblock forge.mom
 
-Phase 1 is shipped. Next branch will be `phase-2a-research`.
+### What happened
 
-### Pre-work the user must finish before coding starts
+forge.mom was attached to the Vercel production deploy after PR #6 merged. First load returned `500 INTERNAL_SERVER_ERROR` with `Code: MIDDLEWARE_INVOCATION_FAILED`. Vercel function logs show:
 
-**Blocking — needed for QStash signing & a public job URL.**
+```
+/var/task/middleware.js:1
+import { updateSession } from '@/lib/supabase/middleware';
+^^^^^^
+SyntaxError: Cannot use import statement outside a module
+```
 
-1. **Create an Upstash account + enable QStash.** https://console.upstash.com → QStash. Free tier (500 msgs/day) is plenty for single-user.
-2. **Copy three values** from the QStash dashboard:
-   - `QSTASH_TOKEN` (publish token)
-   - `QSTASH_CURRENT_SIGNING_KEY`
-   - `QSTASH_NEXT_SIGNING_KEY`
-3. **Add all three to `.env.local` AND to Vercel** (Production / Preview / Development). Update `.env.example` too.
-4. **Point `forge.mom` at the production Vercel deployment.** QStash needs a public, stable URL to call `/api/jobs/research`. (Listed as tracked debt previously; now blocking.) Alternative: use the Vercel-issued production URL directly (`forge-<slug>.vercel.app`) and skip the custom-domain setup until Phase 3 — but the iOS Shortcut would then need a URL change later.
-5. **Decide the local dev story for jobs.** Options:
-    - (a) Test against the deployed Preview/Prod URL (no local QStash testing).
-    - (b) Run an `ngrok` tunnel and point a one-off QStash schedule at it.
-    - (c) Add an `NODE_ENV !== 'production'` escape hatch that accepts a Bearer dev token in place of the QStash signature (mirrors the Shortcut pattern from 1d). Recommend (c) — it keeps the dev loop tight and the gate is impossible to misconfigure in prod.
+**Root cause:** Next.js 15.5.x's `experimental.nodeMiddleware` bundles `middleware.js` as ESM but Vercel's Node runtime loads it as CJS (no `"type": "module"` in package.json). Known issue: https://github.com/vercel/next.js/issues/82122. Bug has been latent in every Preview deploy since Phase 0; the smoke tests were all run against `pnpm dev` so we never exercised a deployed function until forge.mom went live.
 
-**Optional but worth doing now** (recommended after pre-work above):
-- **Rotate the keys that were pasted in chat history** (Supabase service-role JWT, Supabase DB password, Anthropic API key, OpenAI API key, SHORTCUT_API_TOKEN). Easier to do once before Phase 2 than mid-build.
+### Why we can't just "switch to Edge runtime"
 
-### Phase 2a build plan (what Claude will do once pre-work is in)
+Tried first as PR #7 (`hotfix-edge-middleware`, branch still exists, deploy fails). Vercel rejects the deploy with: *"The Edge Function 'middleware' is referencing unsupported modules: @/lib/supabase/middleware."* `@supabase/ssr` 0.10.x transitively pulls in `@supabase/realtime-js` which references `ws` (Node-only). Vercel's edge module checker correctly flags it.
 
-Branch: `phase-2a-research`. Single PR. Per SPEC §4.3 / §10.4 / §11 / §12.
+### The fix: upgrade to Next.js 16
 
-1. **Schema + task definition.**
-   - Add `ResearchSchema` (Zod) per SPEC §4.3 in `lib/ai/research-schema.ts`.
-   - Extend `TaskDef` in `lib/ai/tasks.ts` with optional `tools` field and a "terminal tool name" marker.
-   - Register `research_idea` task: model `claude-sonnet-4-6`, `max_tokens: 4000`, temperature `0.3`, tools `[web_search (server tool, current dated identifier from Anthropic docs at the time), submit_research]`. Pricing per Appendix A.
-   - **Look up the current `web_search_YYYYMMDD` identifier from Anthropic's docs at implementation time** — SPEC §11.1 explicitly says do not hard-code from the spec.
-2. **Runner extension (`lib/ai/run.ts`).**
-   - Branch on `def.tools` containing a terminal tool: pass tools to Anthropic, then extract output by finding the last `tool_use` block whose `name` matches the terminal tool, and treating its `input` as the parsed result (skip `tryParseJson` entirely on this path).
-   - JSON-text path stays unchanged. Retry logic stays — on missing terminal tool call, retry once with "call <tool> as your final action" instruction.
-   - Update `task.call` log so terminal-tool runs are distinguishable (e.g. `outputMode: 'tool'`).
-3. **Prompt: `lib/ai/prompts/research.md`.**
-   - Frontmatter comment with model + schema reference.
-   - Instructs the model to use `web_search` up to 8 times, then call `submit_research` exactly once as its final action with all required fields populated. `confidence` should be honest about source coverage.
-4. **QStash plumbing: `lib/qstash.ts`.**
-   - Singleton `@upstash/qstash` `Client` for publishing.
-   - `verifyQStashSignature(req)` helper that uses `Receiver` from `@upstash/qstash` with both signing keys; on prod, returns 401 if invalid. With option (c) above: also accept a dev bearer when `NODE_ENV !== 'production'`.
-5. **Job route: `app/api/jobs/research/route.ts`.** Per SPEC §12.3:
-   - Verify QStash signature (or dev bearer in dev). Reject 401 if invalid.
-   - Parse body with Zod: `{ captureId: string }`.
-   - **Layer A:** if a `research` row already exists for `capture_id`, return `200 { status: 'already_sent' }`.
-   - **Layer B:** claim a `job_runs` row with `idempotency_key = research:{capture_id}`, `job_name = 'research'`, `status = 'running'`. On conflict with `failed` / `stale_lease`, update back to `running`. On `running` (live lease) or `succeeded`, return `200 already_running` / `already_succeeded`.
-   - Set `captures.research_status = 'running'`.
-   - In-job retries: 2× exponential backoff around `runTask('research_idea', ...)`. After both fail, enqueue **one** delayed QStash retry with `delay: 3600s`; if that also fails, set `research_status = 'failed'` + record error. Surface a "Retry research" UI control (capture detail).
-   - On success: insert the `research` row, set `research_status = 'completed'`, mark `job_runs` succeeded.
-6. **Recovery cron: `app/api/jobs/research-recovery/route.ts`.** Hourly QStash schedule (SPEC §12.1). Two passes:
-   - Captures with `research_status = 'running'` and `updated_at < now() - 5m` → reset to `pending` and re-enqueue research.
-   - `job_runs` with `status = 'running'` and `started_at < now() - 20m` → mark `failed` + `error = 'stale_lease'`.
-7. **Capture-side enqueue.**
-   - In `lib/capture/persist.ts`, after the row insert: if final `kind` is `idea` or `research`, fire-and-forget enqueue of `/api/jobs/research` via QStash (no `await` blocking the user response). Set `research_status = 'pending'`.
-   - Same enqueue helper called from a "Retry research" server action on the detail page (Layer A's idempotency makes manual retries safe).
-8. **Capture detail UI.**
-   - Render `research_status` badge: pending / running / completed / failed.
-   - When `completed`, render the structured result (competitors list, market context paragraph, recent news, angles, sources count, confidence).
-   - "Retry research" button visible when `status === 'failed'`.
-9. **Middleware allowlist.** Add `/api/jobs/` to `SELF_AUTH_API_PREFIXES` (or each job route to the exact set) — see `lib/supabase/middleware.ts`. Mirrors the 1d pattern.
-10. **Tests.**
-    - Unit: `ResearchSchema` parse against a fixture; runner tool-extraction (mocked Anthropic response with `tool_use` block); prompt template substitution; signature-verify happy path + dev-bearer escape hatch; Layer A short-circuit; recovery cron logic.
-    - Smoke: deployed Preview run a real capture → research lands within ~30s, full structured payload, `api_costs` row written.
-11. **One-time setup actions** (the user will do these from the Upstash dashboard or via the Upstash SDK):
-    - Create the schedule: `POST /api/jobs/research-recovery`, cron `0 * * * *`.
-    - On-demand publishes for `/api/jobs/research` are fired by our code — no schedule needed.
-12. **Schema verification before coding** — `research`, `job_runs`, and `api_costs` tables already exist from Phase 0. Confirm the columns match (especially `job_runs.idempotency_key` unique on `(job_name, idempotency_key)`); add a migration only if a column is missing.
+Per the agent guide consulted at 2026-04-27:
+- Next.js 16 (latest 16.2.4 as of date of this writing) **dropped `experimental.nodeMiddleware` entirely**.
+- Middleware was renamed to `proxy.ts` and runs on Node runtime by default.
+- This is the officially supported 2026 pattern with `@supabase/ssr`.
+- There's an official codemod for the rename.
 
-### What 2a does *not* include (deferred to 2b/2c)
+We're on Next 15.5.15. Major version bump.
 
-- VAPID keys, push subscription endpoints, nudge generation.
-- Resend / weekly-summary email.
-- Manual on-demand research from the detail page UI for `problem`/`observation` captures (auto-research only fires on `idea`/`research` per SPEC §4.3 — manual trigger UI can land in 2a if cheap, otherwise 2c).
+### Plan
+
+Branch: `upgrade-next-16`. Single PR.
+
+1. **Close PR #7** (Edge approach) without merging — keeps history clean.
+2. **Run the codemod**: `pnpm dlx @next/codemod@canary upgrade latest`. This bumps Next + handles the `middleware.ts` → `proxy.ts` rename + applies any other 16.x codemods automatically.
+3. **Hand-clean `next.config.ts`**:
+   - Remove `experimental.nodeMiddleware` entirely.
+   - Audit other 16.x deprecations the codemod may have flagged.
+   - Keep `experimental.serverActions.bodySizeLimit: '15mb'` (still required for photo uploads).
+4. **Verify locally**: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`. Make sure all Phase 2a code (already on main) still works post-upgrade — runner, route handlers, capture detail UI.
+5. **Push, PR, watch CI**. CI was passing on PR #6 / PR #7 — should still pass on the upgrade.
+6. **After merge**: production deploy should serve forge.mom without crashing. Then resume Phase 2a smoke test (next section).
+7. **Search the codebase** for `nodeMiddleware`, `runtime: 'nodejs'`, and `middleware.ts` references in comments / memory and clean up. The auto-memory `feedback_middleware_runtime.md` is now stale — update or delete it as part of the PR.
+
+### Risks to watch for during the upgrade
+
+- **Breaking changes beyond the codemod**: Server Actions, App Router, image config, etc. We use a fairly mainstream feature set, but watch for build/type errors after the bump.
+- **`pnpm-lock.yaml` is going to look enormous** in the diff. That's fine — it's mostly the lockfile.
+- **`@supabase/ssr` interaction** with Node-runtime middleware in Next 16 is the supported path, but verify after deploy that login / session refresh / OWNER_EMAIL gate all still work.
+- **Phase 2a code is unverified end-to-end**. The hotfix is the gate to actually smoke-testing it. Once the upgrade lands, the existing 2a code may need its own debugging round.
+
+---
+
+## Pending — Phase 2a smoke test (resume once forge.mom is back up)
+
+PR #6 (Phase 2a research jobs) is **already merged** to main. The code is in place but has never been exercised end-to-end against the production deploy. Once the Next 16 upgrade ships and forge.mom serves traffic again, this is the next checkpoint.
+
+### Pre-test setup (one time)
+
+1. **Verify Vercel Production env has all QStash vars set:** `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`. (User confirmed these were pasted into `.env.local` + Vercel earlier in the session that built 2a.)
+2. **Add the recovery cron schedule in Upstash dashboard:**
+   - URL: `https://forge.mom/api/jobs/research-recovery`
+   - Cron: `0 * * * *` (hourly, UTC)
+   - Method: POST, empty body
+3. *(Optional)* Generate `JOB_DEV_BEARER` for local debugging without ngrok:
+   ```
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+   Paste into `.env.local` only — leave blank in Vercel since it's a dev-only escape hatch.
+
+### Smoke test on forge.mom (signed in)
+
+**Test A — auto-research path:**
+1. `/capture` → text mode → save: `idea: a marketplace for amateur estate-auctioneers in small towns`
+2. Detail page should show **research queued** → **researching…** → **research ready** within ~30s. (No live polling — refresh once or twice.)
+3. Confirm panel renders: competitors (with names + URLs + one-liners), market_context paragraph, 2–3 angles, recent_news, confidence + source count.
+
+**Test B — manual trigger:**
+1. New capture: `problem: my desk is always covered in cables`
+2. Detail page shows **no research** badge + **Run research** button.
+3. Click → flips to **research queued** → eventually **research ready**.
+
+**Test C — DB sanity in Supabase Studio:**
+- `captures.research_status = 'succeeded'` for the test idea capture.
+- `research` table has a row with the JSON payload populated.
+- `job_runs` has a `status = 'succeeded'` row keyed `idempotency_key = 'research:<captureId>'`.
+- `api_costs` has a row with `task = 'research_idea'` and `cost_usd` ≈ $0.05–0.15.
+
+### If Test A times out or stays in `pending`
+
+The most likely culprits, in order:
+1. `QSTASH_TOKEN` missing in Vercel **Production** env (Preview-only doesn't help).
+2. `NEXT_PUBLIC_APP_URL` still set to `http://localhost:3000` in Production — QStash would call the wrong host. Should be `https://forge.mom`.
+3. Vercel function logs for `POST /api/jobs/research` will show the actual error. Search for any `jobs.research.*` log line.
+4. Anthropic auth issue (would surface as `task.call` log line with non-2xx response).
+
+### Phase 2a code locations (for the next session to skim)
+
+- `lib/ai/research-schema.ts` — Zod schema + JSON-schema mirror for `submit_research` tool input.
+- `lib/ai/tasks.ts` — `research_idea` task. **`web_search` identifier: `web_search_20260209`** — confirm against [Anthropic docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-reference) before any future reruns of the registry.
+- `lib/ai/run.ts` + `lib/ai/extract-tool-output.ts` — runner with tool-as-output extraction.
+- `lib/ai/prompts/research.md` — the Sonnet prompt.
+- `lib/qstash.ts` — publish client + `verifyJobRequest` (signature OR dev-bearer in non-prod).
+- `lib/research/enqueue.ts` — fire-and-forget publisher used by capture-side enqueue + retry action.
+- `app/api/jobs/research/route.ts` — main job route per SPEC §12.3.
+- `app/api/jobs/research-recovery/route.ts` — hourly cron.
+- `app/(app)/capture/[id]/ResearchPanel.tsx` + `RetryResearchButton.tsx` — UI.
 
 ---
 
@@ -137,18 +171,21 @@ Branch: `phase-2a-research`. Single PR. Per SPEC §4.3 / §10.4 / §11 / §12.
 
 ### Immediate
 
-1. **Phase 2a — Research jobs.** Plan + pre-work in the "Active item" section above.
-2. **Phase 2b — Daily nudges** (`/api/jobs/nudge?slot=morning|evening`). Cron at 10am/5pm America/New_York. Eligibility per §4.4. Web Push needs VAPID keys.
-3. **Phase 2c — Weekly review** (`/api/jobs/weekly-review/stage1` → chained `stage2`). Resend account + verified sender domain needed.
+1. **Next.js 16 upgrade hotfix** — see "Active item" above. forge.mom is currently 500'ing.
+2. **Resume Phase 2a smoke test** once forge.mom is functional (see "Pending" section above).
+3. **Phase 2b — Daily nudges** (`/api/jobs/nudge?slot=morning|evening`). Cron at 10am/5pm America/New_York. Eligibility per §4.4. Web Push needs VAPID keys.
+4. **Phase 2c — Weekly review** (`/api/jobs/weekly-review/stage1` → chained `stage2`). Resend account + verified sender domain needed.
 
-The task registry / runner machinery from Phase 1c is already in place — adding new tasks is mostly: write the prompt MD, register in `lib/ai/tasks.ts`, call `runTask`. Tool-as-output extraction is the one runner extension that 2a needs.
+The task registry / runner machinery from Phase 1c + 2a is already in place — adding new tasks is mostly: write the prompt MD, register in `lib/ai/tasks.ts`, call `runTask`. Both JSON-text and tool-as-output extraction patterns are supported by the runner.
 
 ### Tracked debt
 
-- **Rotate keys** before Phase 2a starts (see "Active item" above).
+- **Close PR #7** (Edge middleware hotfix) — the approach doesn't work; the Next 16 upgrade replaces it.
+- **Rotate keys** that have been pasted in chat history during Phase 1 + 2a setup. Specifically: Supabase service-role JWT, Supabase DB password, Anthropic API key, OpenAI API key, SHORTCUT_API_TOKEN, QSTASH_TOKEN, QSTASH_CURRENT_SIGNING_KEY, QSTASH_NEXT_SIGNING_KEY.
 - **Re-add Sentry in Phase 3.** It was removed during Phase 1a. See `~/.claude/projects/-Users-tommyfitz-Forge/memory/project_sentry_deferred.md` for the exact restore steps.
 - **Create accounts later** (no immediate blocker until the matching phase): Resend + verified sender domain (Phase 3 / 2c), Sentry (Phase 3).
 - **Vercel preview auth.** Magic-link redirects pin to `https://forge.mom`, so login doesn't round-trip on ephemeral preview URLs. Fix in Phase 2/3 if previews-with-auth become valuable: either swap to runtime `VERCEL_URL` for redirect derivation, or wildcard `*.vercel.app/auth/callback` in Supabase Redirect URLs.
+- **Update `feedback_middleware_runtime.md` memory** — it currently says "use Node runtime via experimental.nodeMiddleware". After the Next 16 upgrade, that's no longer experimental — proxy.ts runs on Node by default. Either rewrite or delete.
 
 ---
 
@@ -325,6 +362,6 @@ git switch main && git pull
 ## How to use this with a new session
 
 1. Open a fresh Claude Code session in `/Users/tommyfitz/Forge`.
-2. Tell it: *"Read HANDOFF.md and the memory directory at `~/.claude/projects/-Users-tommyfitz-Forge/memory/`. Then read SPEC.md §4.3, §10.4, §11, §12. Then tell me where Phase 2a stands and what blockers are on me."*
-3. The session should report: Phase 1 fully shipped; Phase 2a (research jobs) is the active item; pre-work blockers are Upstash QStash account + signing keys + a public URL for the job endpoint (forge.mom or `forge-<slug>.vercel.app`).
-4. Once pre-work is done, branch `phase-2a-research` and follow the build plan in the "Active item" section above.
+2. Tell it: *"Read HANDOFF.md and the memory directory at `~/.claude/projects/-Users-tommyfitz-Forge/memory/`. The active item is the Next.js 16 upgrade hotfix to unblock forge.mom — start there, then we'll resume the Phase 2a smoke test."*
+3. The session should report: forge.mom currently 500s on first load; PR #7 (Edge attempt) is open and needs to be CLOSED, not merged; the path forward is a Next.js 16 upgrade per the "Active item" section. Phase 2a code is merged but unverified end-to-end.
+4. Branch `upgrade-next-16`, run `pnpm dlx @next/codemod@canary upgrade latest`, hand-clean `next.config.ts`, verify locally, push, PR, merge. Then resume the smoke test in the "Pending" section.
