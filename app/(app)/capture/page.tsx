@@ -1,6 +1,7 @@
 import { Mic, Type, Camera, Pencil } from 'lucide-react';
 import { TextCapture } from './TextCapture';
 import { VoiceCapture } from './VoiceCapture';
+import { PhotoCapture } from './PhotoCapture';
 import { cn } from '@/lib/utils';
 
 type SearchParams = Promise<{ mode?: string }>;
@@ -8,14 +9,16 @@ type SearchParams = Promise<{ mode?: string }>;
 const MODES = [
   { id: 'voice', label: 'Voice', icon: Mic, disabled: false },
   { id: 'text', label: 'Text', icon: Type, disabled: false },
-  { id: 'photo', label: 'Photo', icon: Camera, disabled: true, note: 'Coming in Phase 1e' },
+  { id: 'photo', label: 'Photo', icon: Camera, disabled: false },
   { id: 'draw', label: 'Draw', icon: Pencil, disabled: true, note: 'Coming in Phase 4' },
 ] as const;
 
+type Mode = 'voice' | 'text' | 'photo';
+
 export default async function CapturePage({ searchParams }: { searchParams: SearchParams }) {
   const { mode } = await searchParams;
-  // Default to voice — it's the primary capture path per SPEC §3.2.
-  const active = mode === 'text' ? 'text' : mode === 'voice' ? 'voice' : 'voice';
+  const active: Mode =
+    mode === 'text' ? 'text' : mode === 'photo' ? 'photo' : 'voice';
 
   return (
     <div className="space-y-8">
@@ -53,7 +56,9 @@ export default async function CapturePage({ searchParams }: { searchParams: Sear
         })}
       </div>
 
-      {active === 'voice' ? <VoiceCapture /> : <TextCapture />}
+      {active === 'voice' && <VoiceCapture />}
+      {active === 'text' && <TextCapture />}
+      {active === 'photo' && <PhotoCapture />}
     </div>
   );
 }
