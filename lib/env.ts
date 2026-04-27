@@ -1,8 +1,8 @@
 // NOTE: intentionally no `server-only` import — this module is pulled in by
-// middleware (Edge Runtime), where `server-only` throws at deploy time because
-// the `react-server` export condition isn't set. Non-NEXT_PUBLIC_ vars won't
-// reach the client bundle regardless of this file's markers; the Next.js
-// bundler only inlines NEXT_PUBLIC_* into client JS.
+// proxy.ts, which Next.js resolves outside the `react-server` export
+// condition, so `server-only`'s default export would throw at module load.
+// Non-NEXT_PUBLIC_ vars won't reach the client bundle regardless of this
+// file's markers; the Next.js bundler only inlines NEXT_PUBLIC_* into client JS.
 import { z } from 'zod';
 
 const EnvSchema = z.object({

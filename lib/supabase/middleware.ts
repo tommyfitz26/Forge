@@ -1,7 +1,8 @@
-// NOTE: no `server-only` import here. Middleware runs on Edge Runtime, which
-// does not set the `react-server` export condition — `server-only`'s default
-// resolution throws at deploy time. Middleware is server-by-construction, so
-// the guard would add no real protection anyway.
+// NOTE: no `server-only` import here. proxy.ts and its transitive deps
+// (`lib/env.ts`, `lib/types/db.ts`) must not import `server-only` — Next.js
+// resolves the proxy outside the `react-server` export condition, so the
+// package's default export throws at module load. Proxy is server-by-
+// construction, so the guard would add no real protection anyway.
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
