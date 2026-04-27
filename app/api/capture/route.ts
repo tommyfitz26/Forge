@@ -144,7 +144,10 @@ export async function POST(req: NextRequest) {
   // SPEC §4.2 rule 4: empty / unintelligible transcripts → persist as
   // observation with a placeholder title; user fixes on the detail page.
   if (transcript.isEmpty) {
-    const duration = hasValidClientDuration ? clientDuration : transcript.durationSeconds;
+    const rawDuration = hasValidClientDuration ? clientDuration : transcript.durationSeconds;
+    // captures.audio_duration_seconds is `int` (SPEC §6.1).
+    const duration =
+      rawDuration != null && Number.isFinite(rawDuration) ? Math.round(rawDuration) : null;
     const { data: row, error: insertErr } = await supabase
       .from('captures')
       .insert({
@@ -155,7 +158,7 @@ export async function POST(req: NextRequest) {
         content: '',
         original_transcript: '',
         source,
-        audio_duration_seconds: duration ?? null,
+        audio_duration_seconds: duration,
         research_status: 'skipped',
       })
       .select('id')

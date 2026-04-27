@@ -43,6 +43,13 @@ export async function persistCapture(
   const cleanedContent = prefix.matched ? prefix.stripped : raw;
   const title = heuristicTitle(cleanedContent);
 
+  // captures.audio_duration_seconds is `int` per SPEC §6.1; Whisper and the
+  // client timer both return floats.
+  const durationSeconds =
+    input.audioDurationSeconds != null && Number.isFinite(input.audioDurationSeconds)
+      ? Math.round(input.audioDurationSeconds)
+      : null;
+
   const { data, error } = await supabase
     .from('captures')
     .insert({
@@ -53,7 +60,7 @@ export async function persistCapture(
       content: cleanedContent,
       original_transcript: input.originalTranscript ?? raw,
       source: input.source,
-      audio_duration_seconds: input.audioDurationSeconds ?? null,
+      audio_duration_seconds: durationSeconds,
       research_status: initialResearchStatus(kind),
     })
     .select('id')

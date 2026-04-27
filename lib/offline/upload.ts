@@ -10,10 +10,19 @@ import {
 type UploadOk = { ok: true; id: string };
 type UploadErr = { ok: false; status: number; error: string };
 
+// Strip codec parameter and x- prefix so the extension matches Whisper's
+// supported list (it sniffs by filename, not Content-Type — `.webm;codecs=opus`
+// is rejected as "Invalid file format").
+export function extensionFromMime(mimeType: string): string {
+  const subtype = mimeType.split('/')[1] ?? 'bin';
+  const noParams = subtype.split(';')[0]?.trim() ?? 'bin';
+  return noParams.replace(/^x-/, '') || 'bin';
+}
+
 async function uploadOnce(item: PendingItem): Promise<UploadOk | UploadErr> {
   const fd = new FormData();
   // Prefer a File so the server can read .name/.type; fall back to Blob.
-  const ext = item.mimeType.split('/')[1]?.replace(/^x-/, '') ?? 'bin';
+  const ext = extensionFromMime(item.mimeType);
   const file = new File([item.blob], `capture-${item.id}.${ext}`, { type: item.mimeType });
   fd.append('audio', file);
   if (item.durationSeconds != null) {
