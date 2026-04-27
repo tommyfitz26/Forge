@@ -45,6 +45,14 @@ const nextConfig: NextConfig = {
   // package not yet exposing the flag.
   experimental: {
     nodeMiddleware: true,
+    // Server Actions default to a 1MB body cap, but photo uploads in
+    // app/(app)/capture/actions.ts:createPhotoCapture pre-validate up to
+    // MAX_PHOTO_BYTES (15MB). Match the cap so the action itself can receive
+    // the FormData; oversized files still get rejected with a friendly error
+    // before hitting Storage.
+    serverActions: {
+      bodySizeLimit: '15mb',
+    },
   } as NextConfig['experimental'] & { nodeMiddleware: boolean },
   async headers() {
     return [
