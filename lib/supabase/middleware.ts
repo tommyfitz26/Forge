@@ -15,13 +15,18 @@ const PUBLIC_PATHS = ['/login', '/auth/callback'];
 
 // API paths that authenticate themselves (QStash signature, Bearer token, …)
 // rather than relying on the session cookie.
+// /api/capture supports both session-cookie (web) and Bearer-token (Shortcut)
+// auth — the route picks based on ?source=. Either way, the route does its
+// own auth check.
 const SELF_AUTH_API_PREFIXES = ['/api/jobs/'];
+const SELF_AUTH_API_EXACT = new Set(['/api/capture']);
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 function isSelfAuthApi(pathname: string) {
+  if (SELF_AUTH_API_EXACT.has(pathname)) return true;
   return SELF_AUTH_API_PREFIXES.some((p) => pathname.startsWith(p));
 }
 

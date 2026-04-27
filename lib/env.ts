@@ -36,8 +36,10 @@ const EnvSchema = z.object({
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().optional(),
 
-  // Shortcut auth (Phase 1; optional until then)
-  SHORTCUT_API_TOKEN: z.string().optional(),
+  // Shortcut auth — long-lived Bearer for POST /api/capture?source=shortcut.
+  // 64 hex chars (32 random bytes); generate with:
+  //   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+  SHORTCUT_API_TOKEN: z.string().min(32),
 
   // App
   NEXT_PUBLIC_APP_URL: z.string().url(),
