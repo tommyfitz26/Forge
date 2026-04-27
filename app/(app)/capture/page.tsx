@@ -1,11 +1,12 @@
 import { Mic, Type, Camera, Pencil } from 'lucide-react';
 import { TextCapture } from './TextCapture';
+import { VoiceCapture } from './VoiceCapture';
 import { cn } from '@/lib/utils';
 
 type SearchParams = Promise<{ mode?: string }>;
 
 const MODES = [
-  { id: 'voice', label: 'Voice', icon: Mic, disabled: true, note: 'Coming in Phase 1b' },
+  { id: 'voice', label: 'Voice', icon: Mic, disabled: false },
   { id: 'text', label: 'Text', icon: Type, disabled: false },
   { id: 'photo', label: 'Photo', icon: Camera, disabled: true, note: 'Coming in Phase 1e' },
   { id: 'draw', label: 'Draw', icon: Pencil, disabled: true, note: 'Coming in Phase 4' },
@@ -13,14 +14,15 @@ const MODES = [
 
 export default async function CapturePage({ searchParams }: { searchParams: SearchParams }) {
   const { mode } = await searchParams;
-  const active = mode === 'text' ? 'text' : null;
+  // Default to voice — it's the primary capture path per SPEC §3.2.
+  const active = mode === 'text' ? 'text' : mode === 'voice' ? 'voice' : 'voice';
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">New capture</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Start with a voice memo, text note, photo, or sketch.
+          Voice is fastest. Text if typing is easier right now.
         </p>
       </div>
 
@@ -51,13 +53,7 @@ export default async function CapturePage({ searchParams }: { searchParams: Sear
         })}
       </div>
 
-      {active === 'text' ? (
-        <TextCapture />
-      ) : (
-        <div className="rounded-md border border-dashed border-neutral-300 p-8 text-center text-sm text-neutral-500 dark:border-neutral-700">
-          Pick a mode above to start.
-        </div>
-      )}
+      {active === 'voice' ? <VoiceCapture /> : <TextCapture />}
     </div>
   );
 }
