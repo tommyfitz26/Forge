@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import {
   readBodyWithCap,
   requestFromBuffer,
@@ -8,7 +9,11 @@ import {
 } from '@/lib/http/read-body';
 import { transcribeAudio } from '@/lib/ai/transcribe';
 import { persistCapture, type CaptureSource } from '@/lib/capture/persist';
+import { verifyBearer } from '@/lib/auth/shortcut';
+import { env } from '@/lib/env';
 import { logger } from '@/lib/logger';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/types/db';
 
 // POST /api/capture — multipart audio upload from the web recorder (and, in
 // Phase 1d, from the iOS Shortcut). Must be Node runtime (Whisper calls can
@@ -38,20 +43,56 @@ function baseMime(contentType: string | null | undefined): string {
   return (semi === -1 ? contentType : contentType.slice(0, semi)).trim().toLowerCase();
 }
 
-export async function POST(req: NextRequest) {
-  // Auth via session cookie. (Phase 1d will add Bearer-token auth for the
-  // Shortcut path behind `?source=shortcut`.)
+async function authenticate(
+  req: NextRequest,
+): Promise<
+  | {
+      ok: true;
+      userId: string;
+      source: CaptureSource;
+      supabase: SupabaseClient<Database>;
+    }
+  | { ok: false; status: number; error: string }
+> {
+  const source: CaptureSource =
+    req.nextUrl.searchParams.get('source') === 'shortcut' ? 'shortcut' : 'web';
+
+  if (source === 'shortcut') {
+    if (!verifyBearer(req.headers.get('authorization'), env.SHORTCUT_API_TOKEN)) {
+      return { ok: false, status: 401, error: 'unauthorized' };
+    }
+    // No session — look up the owner by email and use the service-role
+    // client (RLS bypassed). Single-tenant: there is exactly one users row.
+    const service = createServiceClient();
+    const { data: owner, error } = await service
+      .from('users')
+      .select('id')
+      .eq('email', env.OWNER_EMAIL)
+      .single();
+    if (error || !owner) {
+      logger.error('shortcut.owner_lookup_failed', { err: error?.message });
+      return { ok: false, status: 500, error: 'owner_not_provisioned' };
+    }
+    return { ok: true, userId: owner.id, source, supabase: service };
+  }
+
+  // Web path: session cookie.
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    return { ok: false, status: 401, error: 'unauthorized' };
   }
+  return { ok: true, userId: user.id, source, supabase };
+}
 
-  const source: CaptureSource = req.nextUrl.searchParams.get('source') === 'shortcut'
-    ? 'shortcut'
-    : 'web';
+export async function POST(req: NextRequest) {
+  const auth = await authenticate(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  const { userId, source, supabase } = auth;
 
   // Read body with 25MB cap BEFORE multipart parsing. If Content-Length is
   // absent (iOS Shortcut sometimes) the stream reader aborts the moment the
@@ -107,7 +148,7 @@ export async function POST(req: NextRequest) {
       receivedType: file.type || '',
       headerType: req.headers.get('content-type') ?? '',
       source,
-      userId: user.id,
+      userId,
     });
     return NextResponse.json({ error: 'unsupported_media_type' }, { status: 415 });
   }
@@ -134,7 +175,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     logger.error('capture.transcribe.failed', {
       err: err instanceof Error ? err.message : String(err),
-      userId: user.id,
+      userId,
       fileSize: file.size,
       mime: declaredType,
     });
@@ -151,7 +192,7 @@ export async function POST(req: NextRequest) {
     const { data: row, error: insertErr } = await supabase
       .from('captures')
       .insert({
-        user_id: user.id,
+        user_id: userId,
         kind: 'observation',
         state: 'raw',
         title: 'Untitled capture',
@@ -172,7 +213,7 @@ export async function POST(req: NextRequest) {
   try {
     const duration = hasValidClientDuration ? clientDuration : transcript.durationSeconds;
     const result = await persistCapture(supabase, {
-      userId: user.id,
+      userId,
       content: transcript.text,
       source,
       audioDurationSeconds: duration,
@@ -182,7 +223,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     logger.error('capture.persist.api_failed', {
       err: err instanceof Error ? err.message : String(err),
-      userId: user.id,
+      userId,
     });
     return NextResponse.json({ error: 'persist_failed' }, { status: 500 });
   }
