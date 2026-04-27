@@ -89,7 +89,22 @@ export async function uploadWithBackoff(
   }
 }
 
-/** Save to IDB then kick off retry loop. Returns the final result. */
+function isPermanentFailure(status: number): boolean {
+  return status >= 400 && status < 500 && status !== 408 && status !== 429;
+}
+
+/**
+ * Save to IDB and attempt one upload. The promise resolves on the FIRST
+ * attempt's result so the UI can move on:
+ *   - success → caller navigates to detail
+ *   - permanent failure (4xx) → caller shows the specific error; no auto-retry
+ *   - retryable failure (network / 5xx / 408 / 429) → background retry loop
+ *     keeps trying with backoff; caller releases the user with a "saved, will
+ *     keep trying" message. The Unsynced badge surfaces progress.
+ *
+ * The blob is in IndexedDB before the first request goes out, so a tab close
+ * or network drop never loses the recording.
+ */
 export async function saveAndUpload(input: {
   blob: Blob;
   mimeType: string;
@@ -108,12 +123,33 @@ export async function saveAndUpload(input: {
   await putPending(item);
   notifyPendingChanged();
 
-  const result = await uploadWithBackoff(item);
+  const result = await uploadOnce(item);
   if (result.ok) {
     await deletePending(id);
     notifyPendingChanged();
+    return result;
   }
+
+  // Permanent: nothing to retry. Leave in IDB so the badge surfaces it; the
+  // user can decide whether to manually retry or discard.
+  if (isPermanentFailure(result.status)) {
+    return result;
+  }
+
+  // Retryable: kick off background backoff loop and return the first error so
+  // the UI doesn't block forever on a long retry chain.
+  void backgroundRetry(item);
   return result;
+}
+
+async function backgroundRetry(item: PendingItem): Promise<void> {
+  const result = await uploadWithBackoff(item);
+  if (result.ok) {
+    await deletePending(item.id);
+    notifyPendingChanged();
+  }
+  // If the loop eventually surfaces a permanent failure (e.g. account ran
+  // out of quota), it stays in IDB for the user to act on via the badge.
 }
 
 /**
