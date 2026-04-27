@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
@@ -6,6 +7,8 @@ import { createClient } from '@/lib/supabase/server';
 import { KindBadge, StateBadge } from '@/components/ui/badge';
 import { StateControls } from './StateControls';
 import type { CaptureKind, CaptureState } from '@/lib/capture/kinds';
+
+const SIGNED_URL_TTL_SECONDS = 3600;
 
 type Params = Promise<{ id: string }>;
 
@@ -24,6 +27,23 @@ export default async function CaptureDetail({ params }: { params: Params }) {
   if (error || !capture) {
     notFound();
   }
+
+  const { data: attachments } = await supabase
+    .from('attachments')
+    .select('id, kind, storage_path, created_at')
+    .eq('capture_id', id)
+    .order('created_at', { ascending: true });
+
+  const photos = await Promise.all(
+    (attachments ?? [])
+      .filter((a) => a.kind === 'photo')
+      .map(async (a) => {
+        const { data } = await supabase.storage
+          .from('attachments')
+          .createSignedUrl(a.storage_path, SIGNED_URL_TTL_SECONDS);
+        return { id: a.id, url: data?.signedUrl ?? null };
+      }),
+  );
 
   return (
     <div className="space-y-6">
@@ -51,9 +71,40 @@ export default async function CaptureDetail({ params }: { params: Params }) {
         <h1 className="text-2xl font-semibold tracking-tight">{capture.title}</h1>
       </div>
 
-      <div className="whitespace-pre-wrap rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm dark:border-neutral-800 dark:bg-neutral-900">
-        {capture.content}
-      </div>
+      {photos.length > 0 && (
+        <div className="space-y-3">
+          {photos.map((p) =>
+            p.url ? (
+              <div
+                key={p.id}
+                className="overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-800"
+              >
+                <Image
+                  src={p.url}
+                  alt="Capture attachment"
+                  width={1200}
+                  height={900}
+                  unoptimized
+                  className="h-auto w-full object-contain"
+                />
+              </div>
+            ) : (
+              <div
+                key={p.id}
+                className="rounded-md border border-dashed border-neutral-300 p-4 text-sm text-neutral-500 dark:border-neutral-700"
+              >
+                Attached photo unavailable.
+              </div>
+            ),
+          )}
+        </div>
+      )}
+
+      {capture.content && (
+        <div className="whitespace-pre-wrap rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm dark:border-neutral-800 dark:bg-neutral-900">
+          {capture.content}
+        </div>
+      )}
 
       {capture.archive_reason && (
         <div className="rounded-md border border-neutral-200 p-3 text-sm text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
