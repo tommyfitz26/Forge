@@ -8,8 +8,10 @@ import { KindBadge, StateBadge } from '@/components/ui/badge';
 import { StateControls } from './StateControls';
 import { ResearchPanel } from './ResearchPanel';
 import { DevelopPanel } from './DevelopPanel';
+import { NudgeBanner } from './NudgeBanner';
 import { buildDevelopPrompt } from '@/lib/develop/prompt';
 import { ResearchSchema } from '@/lib/ai/research-schema';
+import { logger } from '@/lib/logger';
 import type {
   CaptureKind,
   CaptureState,
@@ -19,9 +21,21 @@ import type {
 const SIGNED_URL_TTL_SECONDS = 3600;
 
 type Params = Promise<{ id: string }>;
+type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
-export default async function CaptureDetail({ params }: { params: Params }) {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export default async function CaptureDetail({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: SearchParams;
+}) {
   const { id } = await params;
+  const sp = await searchParams;
+  const rawNudgeParam = typeof sp.nudge === 'string' ? sp.nudge : null;
+  const nudgeIdFromUrl = rawNudgeParam && UUID_RE.test(rawNudgeParam) ? rawNudgeParam : null;
 
   const supabase = await createClient();
   const { data: capture, error } = await supabase
@@ -43,6 +57,40 @@ export default async function CaptureDetail({ params }: { params: Params }) {
     )
     .eq('capture_id', id)
     .maybeSingle();
+
+  // SPEC §4.4 — when arriving via push notification (?nudge=:id) mark the
+  // nudge responded_at if it isn't already. This is what gates the 48-hour
+  // debounce on subsequent eligibility checks. Errors are non-fatal: failing
+  // to write responded_at means the nudge would re-pick this capture next
+  // slot, which is annoying but not broken.
+  let nudgeForBanner: { id: string; question: string; alreadyResponded: boolean } | null = null;
+  if (nudgeIdFromUrl) {
+    const { data: nudgeRow } = await supabase
+      .from('nudges')
+      .select('id, question, responded_at, capture_id')
+      .eq('id', nudgeIdFromUrl)
+      .maybeSingle();
+    if (nudgeRow && nudgeRow.capture_id === id) {
+      const alreadyResponded = nudgeRow.responded_at !== null;
+      if (!alreadyResponded) {
+        const { error: updErr } = await supabase
+          .from('nudges')
+          .update({ responded_at: new Date().toISOString() })
+          .eq('id', nudgeRow.id);
+        if (updErr) {
+          logger.warn('nudge.responded_at.write_failed', {
+            nudgeId: nudgeRow.id,
+            err: updErr.message,
+          });
+        }
+      }
+      nudgeForBanner = {
+        id: nudgeRow.id,
+        question: nudgeRow.question,
+        alreadyResponded,
+      };
+    }
+  }
 
   const { data: attachments } = await supabase
     .from('attachments')
@@ -126,6 +174,14 @@ export default async function CaptureDetail({ params }: { params: Params }) {
         <div className="rounded-md border border-neutral-200 p-3 text-sm text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
           <span className="font-medium">Archive reason:</span> {capture.archive_reason}
         </div>
+      )}
+
+      {nudgeForBanner && (
+        <NudgeBanner
+          nudgeId={nudgeForBanner.id}
+          question={nudgeForBanner.question}
+          alreadyResponded={nudgeForBanner.alreadyResponded}
+        />
       )}
 
       <ResearchPanel
