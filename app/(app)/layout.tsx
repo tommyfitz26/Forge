@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { UnsyncedBadge } from '@/components/layout/UnsyncedBadge';
+import { EnableNudges } from '@/components/push/EnableNudges';
+import { env } from '@/lib/env';
 import { signOut } from './actions';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -11,6 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // Middleware guarantees user is set here, but guard for typing.
   const email = user?.email ?? '';
+  const vapidPublicKey = env.VAPID_PUBLIC_KEY ?? null;
 
   return (
     <div className="min-h-screen">
@@ -41,7 +44,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </nav>
       </header>
-      <main className="mx-auto max-w-3xl px-4 py-8">{children}</main>
+      <main className="mx-auto max-w-3xl px-4 py-8">
+        <div className="mb-4">
+          <EnableNudges vapidPublicKey={vapidPublicKey} />
+        </div>
+        {children}
+      </main>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import withSerwistInit from '@serwist/next';
 import path from 'path';
 
 // Derive the Supabase origin so CSP can whitelist it for fetch + WebSocket.
@@ -84,4 +85,16 @@ const nextConfig: NextConfig = {
 // files for the shape when we return to it. Keeping it out of the bundle for
 // now eliminates @sentry/node + @opentelemetry dynamic requires that Vercel's
 // edge checker trips on.
-export default nextConfig;
+
+// Serwist generates public/sw.js from app/sw.ts on build. Disabled in dev so
+// the SW doesn't cache stale chunks during HMR; iOS push still requires a real
+// build (and the app installed to Home Screen) to test end-to-end.
+const withSerwist = withSerwistInit({
+  swSrc: 'app/sw.ts',
+  swDest: 'public/sw.js',
+  cacheOnNavigation: true,
+  reloadOnOnline: true,
+  disable: isDev,
+});
+
+export default withSerwist(nextConfig);
