@@ -261,7 +261,7 @@ Two ideas are ripe for a conversation. Open Forge to spar.
 
 **Automatic (AI-suggested):**
 - Runs as part of the weekly job before the summary is composed.
-- Uses Sonnet 4.6 with up to the most recent **40 captures from the last 8 weeks** (state ≠ archived), ordered by `created_at desc`. The 40-capture cap bounds both prompt tokens and cost; at the expected 2–3 captures/week, 8 weeks will never approach the cap, but it prevents a future burst from blowing the token budget.
+- Uses Sonnet 4.6 with up to the **40 most recent captures, all-time** (state ≠ archived), ordered by `created_at desc`. The 40-capture cap bounds prompt tokens and cost. At the expected 2–3 captures/week the cap won't bind for ~3 months; the user explicitly opted into "no time window" so an idea logged 10+ weeks ago can still pair with one logged today — long-running patterns are exactly the ones worth surfacing in a weekly review.
 - Prompt: **`lib/ai/prompts/pattern_detection.md`** asks: "Which of these captures might secretly be about the same underlying thing? Return pairs with a short reasoning."
 - Results stored in `links` table with `kind = 'ai_suggested'`. Use `INSERT ... ON CONFLICT (capture_a, capture_b) DO UPDATE SET last_suggested_at = now()` so re-suggested pairs freshen their timestamp rather than throwing a unique-constraint error.
 - Surfaced in the Sunday review.
