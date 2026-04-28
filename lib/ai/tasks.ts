@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { CAPTURE_KINDS } from '@/lib/capture/kinds';
 import { ResearchSchema, RESEARCH_TOOL_INPUT_SCHEMA } from './research-schema';
 import { NudgeQuestionSchema } from './nudge-schema';
+import { WeeklySummarySchema } from './weekly-summary-schema';
+import { PatternDetectionSchema } from './pattern-detection-schema';
 
 // Title style per SPEC §4.2 rule 2: 4–8 words, Title Case, no trailing
 // punctuation. The prompt enforces style; Zod enforces structural sanity only.
@@ -88,6 +90,34 @@ export const TASKS = {
     maxTokens: 200,
     temperature: 0.4,
     pricing: { inputPer1M: 1, outputPer1M: 5 },
+  },
+  // SPEC §4.5 — composes the per-capture digest, patterns intro, and
+  // ready-to-develop list for the Sunday review. Sonnet 4.6 because the
+  // input includes full capture bodies + distilled research and the writing
+  // bar is higher than the Haiku tasks. JSON-text output (no terminal tool):
+  // the schema is small and the runner's JSON-retry path covers boundary
+  // cases. ~3-6k input tokens at steady state, max 4k output for headroom on
+  // a busy week.
+  weekly_summary: {
+    model: 'claude-sonnet-4-6',
+    promptFile: 'weekly_summary.md',
+    outputSchema: WeeklySummarySchema,
+    maxTokens: 4000,
+    temperature: 0.3,
+    pricing: { inputPer1M: 3, outputPer1M: 15 },
+  },
+  // SPEC §4.7 (Automatic) — proposes pairs of captures that may be about the
+  // same underlying thing. Sonnet 4.6 is needed for the cross-capture
+  // pattern-spotting. Lower temperature than weekly_summary because we want
+  // *fewer false positives* over more variety — the user sees these as merge
+  // suggestions and over-eagerness erodes trust quickly.
+  pattern_detection: {
+    model: 'claude-sonnet-4-6',
+    promptFile: 'pattern_detection.md',
+    outputSchema: PatternDetectionSchema,
+    maxTokens: 1500,
+    temperature: 0.2,
+    pricing: { inputPer1M: 3, outputPer1M: 15 },
   },
 } as const satisfies Record<string, TaskDef<z.ZodTypeAny>>;
 
