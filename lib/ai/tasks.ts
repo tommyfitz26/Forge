@@ -2,6 +2,7 @@ import 'server-only';
 import { z } from 'zod';
 import { CAPTURE_KINDS } from '@/lib/capture/kinds';
 import { ResearchSchema, RESEARCH_TOOL_INPUT_SCHEMA } from './research-schema';
+import { NudgeQuestionSchema } from './nudge-schema';
 
 // Title style per SPEC §4.2 rule 2: 4–8 words, Title Case, no trailing
 // punctuation. The prompt enforces style; Zod enforces structural sanity only.
@@ -76,6 +77,17 @@ export const TASKS = {
       },
     ],
     terminalToolName: 'submit_research',
+  },
+  // SPEC §4.4 — generates one Socratic question per nudge slot. Haiku 4.5 is
+  // the right tool: ~$0.0002 per call, runs 2x/day. Temperature 0.4 keeps
+  // questions varied across days for the same capture without going off-rails.
+  nudge_question: {
+    model: 'claude-haiku-4-5',
+    promptFile: 'nudge_question.md',
+    outputSchema: NudgeQuestionSchema,
+    maxTokens: 200,
+    temperature: 0.4,
+    pricing: { inputPer1M: 1, outputPer1M: 5 },
   },
 } as const satisfies Record<string, TaskDef<z.ZodTypeAny>>;
 
