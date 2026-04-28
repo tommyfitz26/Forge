@@ -7,6 +7,11 @@ import { verifyJobRequest, publishJob } from '@/lib/qstash';
 import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
+// Sonnet + web_search (max_uses 8) regularly takes 60–140s. Anthropic SDK
+// timeout is 140s (lib/ai/anthropic.ts); worst case 2 attempts × 140s + 2s
+// backoff = 282s, comfortably inside this 300s budget. Vercel Fluid Compute
+// (Hobby) lifts the legacy 60s cap.
+export const maxDuration = 300;
 
 // Body shape published by capture-side enqueue (and the recovery cron).
 // `isDelayedRetry` distinguishes the one-hour delayed retry from the initial
@@ -19,7 +24,9 @@ const Body = z.object({
 const JOB_NAME = 'research';
 const idempotencyKey = (captureId: string) => `${JOB_NAME}:${captureId}`;
 
-const IN_JOB_RETRY_BACKOFFS_MS = [1_000, 4_000];
+// Two attempts per job invocation (initial + one in-loop retry). Persistent
+// failures fall through to the QStash delayed retry an hour later.
+const IN_JOB_RETRY_BACKOFFS_MS = [2_000];
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const rawBody = await req.text();
