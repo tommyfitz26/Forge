@@ -42,6 +42,56 @@ export async function retryResearch(id: string) {
   revalidatePath(`/capture/${validId}`);
 }
 
+// SPEC §4.6 (post-revision): "Mark developed" replaces the auto-flip that the
+// in-app conversation loop used to trigger. The user presses this when they're
+// done conversing with an external Claude session about the capture. Idempotent:
+// pressing again on an already-developed capture is a no-op.
+export async function markDeveloped(id: string) {
+  const { id: validId } = IdSchema.parse({ id });
+  const { supabase } = await requireAuthedSupabase();
+
+  // Read first so we can write a precise capture_events row + skip the no-op.
+  const { data: row, error: fetchErr } = await supabase
+    .from('captures')
+    .select('state')
+    .eq('id', validId)
+    .single();
+  if (fetchErr || !row) throw new Error('Capture not found.');
+  if (row.state !== 'raw') {
+    // Already developed/serious/archived — nothing to do.
+    return;
+  }
+
+  const { error: updateErr } = await supabase
+    .from('captures')
+    .update({ state: 'developed', updated_at: new Date().toISOString() })
+    .eq('id', validId);
+  if (updateErr) {
+    logger.error('capture.mark_developed.failed', {
+      captureId: validId,
+      err: updateErr.message,
+    });
+    throw new Error(updateErr.message);
+  }
+
+  // Audit log — payload distinguishes this from the auto-flip path so future
+  // analytics can tell external-Claude completions from in-app sessions if we
+  // ever add them back.
+  await supabase.from('capture_events').insert({
+    capture_id: validId,
+    event_type: 'state_change',
+    payload: { from: 'raw', to: 'developed', via: 'develop_prompt_export' },
+  });
+
+  logger.info('capture.state_change', {
+    captureId: validId,
+    to: 'developed',
+    via: 'develop_prompt_export',
+  });
+  revalidatePath('/');
+  revalidatePath(`/capture/${validId}`);
+}
+
 export async function promoteToSerious(id: string) {
   const { id: validId } = IdSchema.parse({ id });
   const { supabase } = await requireAuthedSupabase();
