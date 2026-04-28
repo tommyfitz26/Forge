@@ -205,72 +205,57 @@ Two ideas are ripe for a conversation. Open Forge to spar.
 - **Email send.** Resend call uses `Idempotency-Key: weekly:{week_of}` so a redelivered Stage 2 never sends a duplicate email even if the DB write that records `sent_at` was lost.
 - The unique index on `weekly_summaries (user_id, week_of)` remains the final guard.
 
-### 4.6 In-App Conversation (Development)
+### 4.6 Development (Prompt Export to External Claude)
 
-**Conversation turn output schema (enforced by Zod):**
-```ts
-{
-  message: string,                   // AI's response text shown to user
-  intent: 'template_next'            // advancing the template
-         | 'adaptive_followup'       // the user's answer opened something worth digging into
-         | 'off_script_response',    // user deviated; AI responds then returns to template
-  template_question_index: number,   // 0-based index of next template question (or current)
-  session_complete: boolean          // AI signals the session should close (4+ answers given)
-}
-```
+**Revised in Phase 2d.** v1 does **not** ship an in-app conversation runner. Instead the capture detail page exposes a **Develop this** action that generates a prompt the user copies into a fresh conversation in their personal Claude (claude.ai), where the actual development happens. Forge supplies the structure (kind-specific templates + research-audit instruction); Claude provides the dialogue. This trades round-trip latency and per-turn LLM cost for the user's existing Claude Opus subscription and a richer model than Forge would economically run inline.
 
-**Core loop:** structured Q&A where the user can always go off-script.
+**Why this shape:**
+- Zero per-turn LLM cost in Forge.
+- Uses the user's strongest available model (Claude Opus) at no marginal cost.
+- The development conversation is naturally where research gaps surface — having Claude on the other side, with web search, lets it audit + expand the preliminary research that the in-app `research_idea` task produced (a smaller model on a tight token budget). See *Part 1* below.
+- Removes the conversation state machine, the `conversations` table writes, and the auto-flip from the v1 surface area. State `raw → developed` becomes a manual **Mark developed** action.
 
-**Development templates (per kind):**
+**Generated prompt structure** (deterministic — no LLM call to produce it; pure templating in `lib/develop/prompt.ts`):
 
-*Problem template:*
-1. Who experiences this problem — you, a specific group, a broad market?
-2. How often does it happen? What does the current workaround look like?
-3. If no one solved this, what's the real cost (time, money, frustration)?
-4. Who has tried to solve it already? Why haven't they won?
+- **Intro** — frames Forge, names the kind ("idea" / "problem" / etc).
+- **PART 1 — Audit + expand the research** *(only when `research_status = 'succeeded'` and a `research` row exists)*. Tells Claude the prior research was produced by a smaller model with web search and to treat it as a starting point: verify named competitors actually exist and do what's claimed, flag stale or missing entries, find competitors that were missed, refresh news (funding / launches / shutdowns / regulation), tighten the market context, and surface 2–3 angles the user hasn't considered. Claude is instructed to use web search liberally and over-research rather than under-research.
+- **PART 2 — Pressure-test as a skeptical friend** (the only section when no research exists). "Skeptical friend" tone, no motivational filler, ≤3 sentences per turn. Walks the kind's question template one at a time; Claude doesn't advance until the user answers.
+- **The capture** — kind, title, body content.
+- **Preliminary research** *(only when present)* — formatted competitors / market context / recent news / angles considered, with confidence + sources count.
 
-*Idea template:*
-1. Who is the specific customer? Name someone you know who fits.
+**Development templates (per kind)** — same as the prior in-app spec, used verbatim in the generated prompt:
+
+*Problem:*
+1. Who specifically experiences this — you, a defined group, or a broad market?
+2. How often does it happen, and what's the current workaround?
+3. What's the real cost (time, money, frustration) if no one solves it?
+4. Who's tried to solve it already? Why haven't they won?
+
+*Idea:*
+1. Who is the *specific* customer? Name someone you know who fits.
 2. Why now? What changed in the last 1–3 years that makes this possible or needed?
-3. What's the wedge — the smallest possible v1 that a real person would pay for or use weekly?
-4. What's the strongest argument against this idea? Steelman it.
-5. What would you have to believe for this to be a big company?
+3. What's the wedge — the smallest v1 a real person would pay for or use weekly?
+4. What's the strongest argument *against* this idea? Steelman it.
+5. What would have to be true for this to be a big company?
 
-*Observation template:*
-1. What made this stick out to you?
-2. Does this connect to anything else you've noticed?
-3. Is there a problem or idea hiding in here?
+*Observation:*
+1. What made this stick out to you? Why did you bother capturing it?
+2. Does this connect to anything else you've noticed lately?
+3. Is there a problem or an idea hiding in this observation?
 
-*Research template:*
-1. What specifically do you want to know?
+*Research:*
+1. What specifically do you want to know — frame the answerable question.
 2. What would you do differently if the answer is X vs Y?
-3. How deep — a quick scan or real investigation?
+3. Is this a quick scan or a real investigation?
 
-**Conversation UX:**
-- Linear: AI asks one question at a time.
-- User answers (voice or text).
-- AI generates follow-up: either next question from the template OR an adaptive follow-up if the user's answer opened something interesting (pressure-test mode).
-- User can type at any time; AI receives `[USER ASKED]: ...` and responds, then returns to the template.
-- Each conversation session writes to `conversations` table as a single JSON blob of messages.
-- Session completion rule is defined in one place only: the **Conversation state machine** below. The capture's state flips `raw → developed` at the end of the first *completed* session (either path to completion counts).
+**UX:**
+- **Develop this** button on `/capture/[id]` — visible only when `state = 'raw'`. Click expands an inline panel showing the generated prompt + a Copy button + a convenience link to claude.ai (which opens a new chat tab — Forge cannot pre-fill the prompt because claude.ai's URL surface doesn't accept arbitrary text; user pastes after copying).
+- **Mark developed** — sibling button on the same panel. Flips `state = 'raw' → 'developed'` and writes a `capture_events` row with `event_type = 'state_change'`, `payload = { from: 'raw', to: 'developed', via: 'develop_prompt_export' }`. Idempotent: pressing on a non-`raw` capture is a no-op.
+- The end of the prompt asks Claude for a 3-bullet summary the user can paste back into Forge as a follow-up note (manual today; a paste-back capture is just a normal text capture).
 
-**Tone guidelines (baked into system prompt):**
-- Skeptical friend. Pushes back on every idea.
-- Avoids motivational filler. No "great idea!" or "I love this."
-- References the capture's research when relevant ("based on the research, Calendly already owns this space — what's your angle?").
-- Keeps each message short (≤ 3 sentences).
+**What's deferred to a future phase** (see §4.10): structured expansion sections per capture, where instead of a single `content` body each capture has named sections (problem framing / customer / wedge / etc) the user can fill in over time. Today the develop-export workflow is per-capture and one-shot; the structured expansion would let the same scaffolding live inside Forge so the user can return to half-developed thoughts without re-pasting context. UX is explicitly TBD.
 
-**Conversation state machine (per session):**
-- State: `{ template_question_index: int, answered_count: int, done: bool }`, derived from the messages array in `conversations`.
-- On `intent = 'template_next'`: advance `template_question_index`, increment `answered_count`.
-- On `intent = 'adaptive_followup'`: leave `template_question_index` unchanged, increment `answered_count` (the user answered *something*, even if off-script).
-- On `intent = 'off_script_response'`: the user asked a question mid-flow; respond and leave both counters unchanged.
-- Session completes when **any** of:
-  - (a) the user taps **Done**;
-  - (b) `answered_count >= min(4, template_length)` AND the model returns `session_complete: true`. `template_length` is the number of questions in the capture's kind template (problem=4, idea=5, observation=3, research=3), so observation/research sessions can complete at 3 answers.
-  - (c) `answered_count >= 6` regardless of model signal (hard cap so the model can't loop forever).
-- On completion, flip the capture `raw → developed` if it isn't already (see §4.2).
-- **Edge cases:** if the model returns `template_question_index >= template_length`, treat it as `adaptive_followup` for that turn instead of erroring. If Zod validation of the turn output fails twice in a row, show the user a "Something went wrong — your last answer was saved. Continue?" prompt that resumes from the DB state on tap.
+**What this spec used to say:** in-app conversation with Sonnet 4.6, structured Q&A, `conversations` table writes, `intent` enum, automatic `raw → developed` flip, hard-cap of 6 answers per session. None of that ships in v1; the section above replaces all of it. If we revisit, the prior shape is preserved in git history at SPEC.md commit before Phase 2d.
 
 ### 4.7 Pattern Detection & Linking
 
@@ -353,6 +338,13 @@ These power the UI — "this capture has been used in N merges" on each source's
 - Settings page lets user disable nudges or weekly review.
 - If user has 0 eligible captures at nudge time, skip silently (no push).
 - Web Push via VAPID, stored subscriptions in `push_subscriptions` table.
+
+### 4.10 Future enhancements (planned, not in v1)
+
+These are deliberately deferred — captured here so the v1 design doesn't paint into a corner. Specifications, schema, and UX are all TBD; revisit when v1 is in steady state.
+
+- **Structured expansion sections per capture.** Today every capture has a single `content` body. The owner has indicated they want a way to expand on a capture's thinking *in a structured way* — likely named, kind-aware sections the user fills in over time (e.g. for an `idea`: customer / wedge / counter-argument / what-must-be-true; for a `problem`: scope / cost / prior solvers; etc). This complements §4.6's prompt-export flow: the export is a one-shot conversation generator, while structured expansion is the persistent canvas you keep returning to. Open questions: schema (jsonb on `captures` vs. a `capture_sections` table), section templates per kind, whether the develop-export prompt should pre-fill these from the Claude conversation summary, and how this composes with merge (§4.7). Don't design until v1 has run for a few weeks — the right section list will reveal itself in use.
+- **Paste-back summary capture.** §4.6's generated prompt asks Claude to end with a 3-bullet summary. v1 expects the user to paste that back in as a normal text capture. A future enhancement: a dedicated paste-back surface on the original capture's detail page that attaches the summary to the source rather than creating a sibling capture.
 
 ## 5. Key User Flows (end-to-end)
 

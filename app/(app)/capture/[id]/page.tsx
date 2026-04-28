@@ -7,6 +7,9 @@ import { createClient } from '@/lib/supabase/server';
 import { KindBadge, StateBadge } from '@/components/ui/badge';
 import { StateControls } from './StateControls';
 import { ResearchPanel } from './ResearchPanel';
+import { DevelopPanel } from './DevelopPanel';
+import { buildDevelopPrompt } from '@/lib/develop/prompt';
+import { ResearchSchema } from '@/lib/ai/research-schema';
 import type {
   CaptureKind,
   CaptureState,
@@ -129,6 +132,22 @@ export default async function CaptureDetail({ params }: { params: Params }) {
         captureId={capture.id}
         status={(capture.research_status ?? 'pending') as ResearchStatus}
         research={research ?? null}
+      />
+
+      <DevelopPanel
+        captureId={capture.id}
+        state={capture.state as CaptureState}
+        prompt={buildDevelopPrompt({
+          capture: {
+            kind: capture.kind as CaptureKind,
+            title: capture.title,
+            content: capture.content ?? '',
+          },
+          // research is jsonb in Postgres → loose-typed; re-validate so a stale
+          // row (pre-schema) can't crash prompt generation. Failed parse =
+          // treat as no research, same UX as research_status='skipped'.
+          research: research ? (ResearchSchema.safeParse(research).data ?? null) : null,
+        })}
       />
 
       <div className="border-t border-neutral-200 pt-6 dark:border-neutral-800">

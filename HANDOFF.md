@@ -53,32 +53,33 @@
 | Hotfix | Next.js 16 upgrade — unblock forge.mom (PR #8) | ✅ Merged. PR #7 (Edge attempt) closed without merging. |
 | 2a | Research jobs (Sonnet 4.6 + web_search + QStash) | ✅ Smoke-tested end-to-end (PR #6 + PR #9 timeout fix). |
 | **Phase 2a** | **Auto-research + manual-trigger + delayed retry verified on forge.mom** | **✅ Shipped** |
-| **2b** | **Daily nudges (Web Push + cron)** | **⏳ Active — start here next session** |
+| 2b slice 1 | VAPID + push subscriptions + PWA shell | ✅ Merged (PR #11). Smoke-tested on iPhone — banner shown, test push lands. |
+| 2b slice 2 | `nudge_question` task + prompt + Zod schema | ✅ Merged (PR #12). No UI yet; exercised in slice 3. |
+| **2d** | **Develop-prompt export** (replaces in-app conversation per SPEC §4.6 rewrite) | **⏳ Active — this PR** |
+| 2b slice 3 | `/api/jobs/nudge` route + Upstash crons | ⏳ Blocked on 2d so the notification has somewhere to go. |
 | 2c | Weekly Socratic review (Resend) | ⏳ Not started |
 
 ---
 
-## Active item — Phase 2b daily nudges
+## Active item — Phase 2d develop-prompt export
 
-**Not started.** Spec reference: SPEC §4.4 (eligibility + cadence) and SPEC §12.x (job route shape). At a high level:
+**In flight (this PR: `phase-2d-develop-prompt-export`).** SPEC §4.6 was rewritten to drop the in-app conversation runner: a "Develop this" button on `/capture/[id]` generates a prompt the user copies into a fresh Claude (claude.ai) chat, where the actual development conversation happens. Forge supplies the structure (kind-specific templates + research-audit instruction); the external Claude provides the dialogue. State `raw → developed` becomes a manual **Mark developed** action, written to `capture_events` with `via: 'develop_prompt_export'`.
 
-- Two cron-driven jobs: `/api/jobs/nudge?slot=morning` (10am `APP_SCHEDULE_TZ`) and `/api/jobs/nudge?slot=evening` (5pm `APP_SCHEDULE_TZ`). `APP_SCHEDULE_TZ` defaults to `America/New_York`.
-- Eligibility per SPEC §4.4: pick captures in `state in ('raw','developed')` matching the slot's filters, generate a single Socratic nudge per session via Haiku/Sonnet, send Web Push.
-- Web Push needs **VAPID keys** generated and stored as env vars (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`). Generate with `npx web-push generate-vapid-keys`. The first 2b PR (`phase-2b-vapid-and-subscriptions`) added these to Vercel + the EnableNudges UI; if VAPID is unset, the routes 503 and the UI hides itself.
-- New tables to wire up (already in schema): `nudges`, `push_subscriptions` (both exist per the initial migration).
-- The PWA shell + `/sw.js` were stood up in slice 1 (`phase-2b-vapid-and-subscriptions`): manifest, apple-touch-icon, `app/sw.ts` compiled by `@serwist/next` to `public/sw.js`. Pre-existing HANDOFF note that "/sw.js already exists" was wrong.
-- Add a new task to `lib/ai/tasks.ts` (e.g. `nudge_question`) — model + prompt + Zod schema. Use the `runTask` runner; pricing rows need to be added too.
-- Cron registration in Upstash: `0 14 * * *` UTC for 10am ET morning, `0 21 * * *` UTC for 5pm ET evening. Confirm UTC offset for current daylight-saving state when adding (Upstash schedules in UTC — DST means the human-local time will drift unless you re-cron at the boundary, OR use cron timezones in Upstash if they support it).
+Why this shape (preserved in SPEC §4.6 — read it before changing): zero per-turn LLM cost in Forge, leverages the user's Claude Opus, and the audit-prompt asks Claude to **expand and verify** the smaller-model research that Phase 2a produced. No `conversations` table writes in v1.
 
-**The task registry / runner machinery from Phase 1c + 2a is already in place — adding nudges is mostly: write the prompt MD, register in `lib/ai/tasks.ts`, call `runTask` from the new job route.** Both JSON-text and tool-as-output extraction patterns are supported by the runner.
+### Phase 2d slice
 
-### Suggested branching
+Single PR, ~150 LOC + SPEC rewrite:
 
-One PR per logical slice — don't bundle:
+- `lib/develop/prompt.ts` — pure `buildDevelopPrompt({ capture, research })`. Two structures: research-present (Part 1 audit + Part 2 pressure-test) and research-absent (pressure-test only). Templates per kind copied verbatim from §4.6.
+- `app/(app)/capture/[id]/DevelopPanel.tsx` — inline collapsible panel on the capture detail page; renders the prompt + Copy + claude.ai link + Mark developed.
+- `markDeveloped` server action in `app/(app)/capture/[id]/actions.ts` — idempotent `raw → developed` flip + `capture_events` row.
+- SPEC §4.6 fully rewritten; SPEC §4.10 added for future "structured expansion sections per capture" (UX TBD).
 
-1. ✅ `phase-2b-vapid-and-subscriptions` (PR #11) — PWA manifest + Serwist SW + `app/sw.ts` push/notificationclick handlers, VAPID env wiring, `/api/push/subscribe` (POST + DELETE), `/api/push/test`, EnableNudges client component on (app)/layout.tsx, owner-only "Send test" button. **Build switched from Turbopack to webpack** (`next dev --webpack` / `next build --webpack`) because `@serwist/next` doesn't support Turbopack yet — see `feedback_serwist_turbopack.md`. After merge: install Forge to iPhone Home Screen, allow notifications, send test push, verify a `push_subscriptions` row.
-2. `phase-2b-nudge-task-and-prompt` — `nudge_question` task in `lib/ai/tasks.ts`, prompt MD, schema, unit tests.
-3. `phase-2b-nudge-job-routes` — `/api/jobs/nudge` route with slot-aware eligibility + Web Push send + `nudges` table writes + `job_runs` idempotency. Add Upstash crons after deploy.
+### Up next after 2d merges
+
+1. **Phase 2b slice 3 — `phase-2b-nudge-job-routes`**: `/api/jobs/nudge?slot=morning|evening` with eligibility per SPEC §4.4 (`state in ('raw','developed')`, no nudge in last 20h, no response in last 48h), `runTask('nudge_question', ...)`, push send via `lib/push/send.ts`, `nudges` row write, `job_runs` Layer-B idempotency keyed `nudge:{YYYY-MM-DDTHH}`. Tap-the-notification UX: opens `/capture/:id?nudge=:nudge_id`, the existing detail page already shows the Develop panel — no extra UI needed beyond highlighting the nudge question briefly. Add Upstash crons after deploy: `0 14 * * *` UTC (10am ET) and `0 21 * * *` UTC (5pm ET) — note DST drift per the Upstash crons section below.
+2. **Phase 2c — weekly review** (Resend email + push + `/review/:weekId`).
 
 ---
 
