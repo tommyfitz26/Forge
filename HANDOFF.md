@@ -53,51 +53,110 @@
 | Hotfix | Next.js 16 upgrade — unblock forge.mom (PR #8) | ✅ Merged. PR #7 (Edge attempt) closed without merging. |
 | 2a | Research jobs (Sonnet 4.6 + web_search + QStash) | ✅ Smoke-tested end-to-end (PR #6 + PR #9 timeout fix). |
 | **Phase 2a** | **Auto-research + manual-trigger + delayed retry verified on forge.mom** | **✅ Shipped** |
-| 2b slice 1 | VAPID + push subscriptions + PWA shell | ✅ Merged (PR #11). Smoke-tested on iPhone — banner shown, test push lands. |
-| 2b slice 2 | `nudge_question` task + prompt + Zod schema | ✅ Merged (PR #12). No UI yet; exercised in slice 3. |
-| 2d | Develop-prompt export (replaces in-app conversation per SPEC §4.6 rewrite) | ✅ Merged (PR #13). Smoke-tested — Claude follows the audit-then-pressure-test ordering. |
-| **2b slice 3** | **`/api/jobs/nudge` route + nudge banner + Upstash crons** | **⏳ Active — this PR** |
-| 2c | Weekly Socratic review (Resend) | ⏳ Not started |
+| 2b slice 1 | VAPID + push subscriptions + PWA shell | ✅ Merged (PR #11). Smoke-tested on iPhone. |
+| 2b slice 2 | `nudge_question` task + prompt + Zod schema | ✅ Merged (PR #12). |
+| 2d | Develop-prompt export (replaces in-app conversation per SPEC §4.6 rewrite) | ✅ Merged (PR #13). Smoke-tested — Claude honors audit-then-pressure-test ordering. |
+| 2b slice 3 | `/api/jobs/nudge` route + nudge banner + Upstash crons | ✅ Merged (PR #14). Smoke-tested + crons registered (timezone-aware). |
+| **Phase 2b** | **Daily nudges fully shipped — cron schedules LIVE in Upstash** | **✅ Shipped 2026-04-28** |
+| **2c** | **Weekly Socratic review (Resend email + push + /review/:weekId)** | **⏳ Next active item** |
 
 ---
 
-## Active item — Phase 2b slice 3: nudge job routes
+## Active item — Phase 2c weekly review
 
-**In flight (this PR: `phase-2b-nudge-job-routes`).** Cron-driven nudge generation + send + tap-handling.
+**Not started.** SPEC reference: §4.5 (cadence + format + idempotency) and §12.1 (cron schedule shape). Sunday 5:00pm `APP_SCHEDULE_TZ` (`America/New_York`). Three deliverables in one job: Resend email + Web Push notification + in-app `/review/:weekId` walkthrough screen.
 
-### What's in the slice
+### Pre-reqs (do these before slice 1)
 
-- `/api/jobs/nudge?slot=morning|evening` (Node runtime, maxDuration 60s). Order: QStash signature verify → Layer B `job_runs` claim keyed `nudge:{slot}:{YYYY-MM-DD}` (local YMD in `APP_SCHEDULE_TZ` so DST splits don't fork the key) → Layer A eligibility query → `selectCapture()` weighted pick → `runTask('nudge_question')` → `nudges` row insert with `scheduled_for=now()` → push fanout → set `sent_at` if at least one delivery succeeded.
-- `lib/nudge/select-capture.ts` — pure tiered comparator: `raw_with_research > raw_idea > raw_other > developed`, oldest-first within tier, id tie-break for determinism.
-- `lib/nudge/research-summary.ts` — compact formatter for the prompt's `research_summary` var (cap 5 competitors, 1 news item, 280-char market_context).
-- Capture detail page reads `?nudge=:id`, marks `responded_at` server-side if not already, renders `NudgeBanner` above `DevelopPanel`.
-- `skipNudge` server action — explicit Skip with optional reason, writes `responded_at` + `skipped_reason`.
+- **Resend account** at https://resend.com (free tier is fine for v1's volume — one email/week to one user).
+- **Verified sender domain.** Either verify `forge.mom` (Resend → Domains → Add → DNS records added in Vercel DNS), or temporarily use Resend's default `onboarding@resend.dev` sender for the first slice and switch to a real domain before going live. Free tier limits `onboarding@resend.dev` to your own verified emails so it'll deliver to `fitzgibbons.tommy@gmail.com` either way.
+- Add `RESEND_API_KEY` + `RESEND_FROM_ADDRESS` to Vercel env (Production + Preview + Development). They're already optional() in `lib/env.ts` and stub'd in `.env.example`.
 
-### Cron registration (after merge + production deploy)
+### Suggested branching (one PR per slice — don't bundle)
 
-Forge uses Upstash QStash schedules (already configured for the research-recovery cron). Nudge needs two daily schedules. Two ways to handle DST:
+1. **`phase-2c-weekly-tasks`** — register two Sonnet 4.6 tasks in `lib/ai/tasks.ts`:
+   - `weekly_summary` — input: array of the week's captures with title/kind/state/research; output: structured `{ counts, captures: [{id, summary, research_distilled}], patterns_summary, ready_to_develop_ids }` per SPEC §4.5 email format. Prompt at `lib/ai/prompts/weekly_summary.md`.
+   - `pattern_detection` — input: most-recent-40 captures from last 8 weeks (state ≠ archived); output: pairs with `{capture_a, capture_b, reasoning}` per SPEC §4.7 Automatic. Prompt at `lib/ai/prompts/pattern_detection.md`.
+   - Both Sonnet 4.6, JSON-text output (no terminal tool needed). Pricing rows already match `research_idea` (3 in / 15 out per 1M).
+   - Unit tests for prompts + Zod schemas. No route wiring.
 
-**Option A — Upstash schedules with timezone (recommended).** Upstash supports `cron_tz` on schedules. Register through the Upstash console (or `qstash schedules create` via API):
-- Morning: cron `0 10 * * *`, timezone `America/New_York`, destination `https://forge.mom/api/jobs/nudge?slot=morning`.
-- Evening: cron `0 17 * * *`, timezone `America/New_York`, destination `https://forge.mom/api/jobs/nudge?slot=evening`.
+2. **`phase-2c-resend-helper`** — `lib/email/send.ts`. Wraps Resend SDK with `Idempotency-Key: weekly:{week_of}` per SPEC §4.5. 410-style cleanup isn't relevant for email; just log + swallow non-200 from Resend so a transient send failure can be retried by the next stage redelivery.
 
-This survives DST automatically.
+3. **`phase-2c-review-job-stages`** — two-stage chained QStash job per SPEC §4.5:
+   - `/api/jobs/weekly-review/stage1` — Layer A: read/insert `weekly_summaries` row with `status='composing'` (unique on `(user_id, week_of)`). Layer B: claim `job_runs` keyed `weekly:{week_of}:stage1`. Run `pattern_detection` + `weekly_summary` tasks. Write `email_content_md`, `captures_included`, `patterns_detected` to the row. Publish stage 2 with `delaySeconds: 0`. Zero-capture week → exit early per SPEC §4.5.
+   - `/api/jobs/weekly-review/stage2` — Layer B: claim `job_runs` keyed `weekly:{week_of}:stage2`. Read the row. Send Resend email (`Idempotency-Key`). Send push to all subscriptions. Update row to `status='sent'`, `sent_at`, `email_message_id`. Mark stage2 succeeded.
+   - `/review/[weekId]/page.tsx` — server component that reads the `weekly_summaries` row and renders the conversational walkthrough version per SPEC §4.5 ("In-app review screen"). With §4.6 simplified to develop-export, this screen can be much smaller than originally specced — for v1 just show the per-capture summaries + the patterns list with "Open in Forge" links to the develop panel.
 
-**Option B — UTC crons (fallback if `cron_tz` isn't available).** During EDT (Mar–Nov):
-- `0 14 * * *` UTC = 10:00 EDT
-- `0 21 * * *` UTC = 17:00 EDT
+4. **Cron registration** (Upstash, after deploy + manual smoke test): one schedule, cron `0 17 * * 0`, timezone `America/New_York`, destination `https://forge.mom/api/jobs/weekly-review/stage1`, body `{}`. The two-stage chain happens internally via QStash `publishJob` from stage 1 → stage 2.
 
-During EST (Nov–Mar):
-- `0 15 * * *` UTC = 10:00 EST
-- `0 22 * * *` UTC = 17:00 EST
+### Notes for next session
 
-If we go with Option B, calendar a reminder for the next two DST boundaries (March 8 2027, November 1 2026) to re-cron — or just live with the 1-hour drift for a couple weeks.
+- The runner machinery is already in place — the same pattern as `research_idea` (Sonnet, JSON-text mode) plus a chained second stage. The `pattern_detection` task can reuse Sonnet's existing client + the `runTask` runner without modification.
+- SPEC §4.6 was **rewritten this session** to remove the in-app conversation runner. The post-rewrite weekly review screen is *not* a Q&A interface — it's a digest with links into the develop-export flow. The original §4.5 "In-app review screen (the conversation mode)" copy should be reinterpreted that way.
+- `lib/push/send.ts` is already production-tested for the daily nudge — reuse it for the weekly push notification.
+- The smoke-test playbook from Phase 2b slice 3 (manual QStash invocation → tap → verify DB rows → register cron) applies one-for-one. Plan for an end-to-end test on a Sunday to confirm before relying on the schedule.
 
-After registering: trigger one schedule manually from the Upstash console to confirm end-to-end on `forge.mom` before relying on the cron. Watch logs for `jobs.nudge.completed` (success), `jobs.nudge.no_eligible_captures` (skipped silently — expected when nothing's pending), or `jobs.nudge.task_failed` (LLM call broke).
+---
 
-### Up next after this slice merges
+## Phase 2b + 2d — completed (history, 2026-04-27 → 2026-04-28)
 
-1. **Phase 2c — weekly review** (Resend email + push + `/review/:weekId`). Needs Resend account + verified sender domain.
+Phase 2b shipped across three slices, with Phase 2d (the SPEC §4.6 rewrite) inserted between slices 2 and 3. End-to-end verified on forge.mom with iPhone PWA, real push delivery, and live Upstash schedules.
+
+### Slice 1 — VAPID + push + PWA shell (PR #11, commit `e17b933`)
+
+- HANDOFF before this slice claimed `/sw.js` was already generated by `@serwist/next`; it wasn't. Slice 1 actually stood up the PWA shell from scratch: `app/manifest.webmanifest`, `app/sw.ts` (Serwist precache + push + notificationclick handlers compiled to `public/sw.js`), placeholder 192/512/180 PNG icons in `public/icons/`, apple-touch-icon link tags via Next 16 metadata API.
+- New deps: `@serwist/next`, `serwist`, `web-push`, `@types/web-push`.
+- `lib/push/vapid.ts` — env-validated VAPID config singleton (throws `VapidNotConfiguredError` on use if any of the three is missing; routes catch and 503).
+- `lib/push/send.ts` — `web-push.sendNotification` wrapper that deletes the subscription row on 404/410 and bumps `last_used_at` on success.
+- `lib/push/encoding.ts` — `urlBase64ToUint8Array` for the browser-side `applicationServerKey`.
+- `app/api/push/subscribe/route.ts` — POST upserts on endpoint, DELETE removes by endpoint. Cookie-auth (proxy already gates on OWNER_EMAIL).
+- `app/api/push/test/route.ts` — owner-only fan-out test push, used for the smoke test.
+- `components/push/EnableNudges.tsx` — client component on `(app)/layout.tsx`. Hides itself when VAPID env is unset, when notifications are unsupported, or when already subscribed (post-subscribe shows a "Send test" button).
+- **Build switched from Turbopack to webpack** (`next dev --webpack` / `next build --webpack`) because `@serwist/next` doesn't yet support Turbopack. Saved as memory `feedback_serwist_turbopack.md`.
+- Smoke test: VAPID keys generated via `npx web-push generate-vapid-keys`, set in Vercel, deployed, installed PWA to iPhone Home Screen, granted notification permission, "Send test" landed a push successfully.
+
+### Slice 2 — `nudge_question` task + prompt + schema (PR #12, commit `5949504`)
+
+- `lib/ai/prompts/nudge_question.md` — Haiku 4.5 prompt that picks one Socratic question per slot, kind-aware (problem / idea / observation / research). References research summary and conversation state via `{{vars}}`. Enforces 8–22 word push-friendly length.
+- `lib/ai/nudge-schema.ts` — Zod schema for `{ question, reasoning }`. Loose 6–30-word guard so Haiku boundary-landings don't trigger retries.
+- `lib/ai/tasks.ts` — registered `nudge_question` task: `claude-haiku-4-5`, `max_tokens: 200`, `temperature: 0.4`. Costs ~$0.0002/call × ~60/month = ~$0.01/month.
+
+### Phase 2d — Develop-prompt export (PR #13, commit `80204ac`)
+
+This is a meaningful product-direction change worth flagging in any future review. SPEC §4.6 was rewritten end-to-end:
+
+- v1 does **not** ship an in-app conversation runner. The "Develop this" button on `/capture/[id]` generates a deterministic prompt (no LLM call) the user copies into a fresh claude.ai chat, where the actual development happens.
+- When research exists, the prompt has **Part 1 (audit + expand)** + **Part 2 (pressure-test)**. Part 1 instructs Claude to verify named competitors, surface what was missed, refresh news, refine market context with liberal web search before moving on to the §4.6 questions.
+- When research is absent (problem/observation captures, or failed research), Part 1 is dropped; the prompt goes straight to pressure-test.
+- State `raw → developed` becomes a manual **Mark developed** action, idempotent, writes `capture_events` with `payload.via = 'develop_prompt_export'`.
+- Files: `lib/develop/prompt.ts` (pure `buildDevelopPrompt`), `app/(app)/capture/[id]/DevelopPanel.tsx`, `markDeveloped` action in `app/(app)/capture/[id]/actions.ts`.
+- SPEC §4.10 was added: "Future enhancements (planned, not in v1)" — captures the user-flagged "structured expansion sections per capture" idea as a deferred item with UX explicitly TBD. Don't design until v1 has run for a few weeks.
+- Smoke test on forge.mom confirmed Claude follows the audit-then-pressure-test ordering when given the generated prompt.
+
+### Slice 3 — `/api/jobs/nudge` + nudge banner + Upstash crons (PR #14, commit `19dcc91`)
+
+- `app/api/jobs/nudge/route.ts` — POST `?slot=morning|evening`. QStash signature verify → Layer B `job_runs` claim keyed `nudge:{slot}:{YYYY-MM-DD}` (local YMD in `APP_SCHEDULE_TZ`) → Layer A eligibility query → `selectCapture()` weighted pick → `runTask('nudge_question')` → `nudges` row insert → push fanout → set `sent_at` if at least one delivery succeeded. Skips silently (200) on no-eligible-captures or missing VAPID.
+- `lib/nudge/select-capture.ts` — pure tiered comparator: `raw_with_research > raw_idea > raw_other > developed`, oldest-first, id tie-break.
+- `lib/nudge/research-summary.ts` — compact formatter (cap 5 competitors, 1 news item, 280-char market_context).
+- Capture detail page reads `?nudge=:id`, validates UUID, marks `responded_at` server-side if not already (this is what gates the 48h debounce — opening the notification counts as "responded").
+- `app/(app)/capture/[id]/NudgeBanner.tsx` — shows the question above the Develop panel; "Skip with reason" writes `skipped_reason`.
+
+### Cron schedules — LIVE in production
+
+Two Upstash QStash schedules registered with timezone-aware crons (Option A from this slice's PR body):
+
+| Slot    | Cron          | Timezone           | URL                                                |
+|---------|---------------|--------------------|----------------------------------------------------|
+| Morning | `0 10 * * *`  | `America/New_York` | `https://forge.mom/api/jobs/nudge?slot=morning`   |
+| Evening | `0 17 * * *`  | `America/New_York` | `https://forge.mom/api/jobs/nudge?slot=evening`   |
+
+DST-safe — Upstash converts to the right UTC instant each fire. To verify health, watch `jobs.nudge.completed` log lines or query `select * from job_runs where job_name='nudge' order by started_at desc limit 10;`.
+
+### What I'd watch for in the first week
+
+- **Repetitive questions on the same capture.** `selectCapture` has a small candidate pool by design (single user, 2–3 captures/week). If the same capture wins picks for several days in a row, that's expected at this volume — temperature 0.4 should keep questions varied, but if they feel samey we can revisit.
+- **Push delivery reliability.** Apple's APNs occasionally drops messages. If `jobs.nudge.completed` logs `sent: 0` more than once a week, investigate.
+- **Budget creep.** `select sum(cost_usd) from api_costs where created_at >= date_trunc('month', now());` — should stay well under $25/month with daily nudges + occasional research.
 
 ---
 
@@ -130,11 +189,11 @@ Final smoke test passed end-to-end: idea capture → auto-enqueue → Sonnet+web
 
 ### Immediate
 
-1. **Phase 2b — Daily nudges** (`/api/jobs/nudge?slot=morning|evening`). Cron at 10am/5pm `APP_SCHEDULE_TZ` (default `America/New_York`). Eligibility per SPEC §4.4. Web Push needs VAPID keys generated. See "Active item" above for branching plan.
-2. **Phase 2c — Weekly review** (`/api/jobs/weekly-review/stage1` → chained `stage2`). Resend account + verified sender domain needed.
-3. **Detail-page polling** (small UX polish — see end-of-file "Enhancements" section).
+1. **Phase 2c — Weekly review.** See "Active item" above for the four-slice branching plan + Resend pre-reqs.
+2. **Detail-page polling** (small UX polish — see end-of-file "Enhancements" section).
+3. **Real PWA icons.** `public/icons/{icon-192, icon-512, apple-touch-icon}.png` are programmatically-generated dark-square placeholders from a Node PNG encoder. Replace with real branding before showing the app to anyone.
 
-The task registry / runner machinery from Phase 1c + 2a is already in place — adding new tasks is mostly: write the prompt MD, register in `lib/ai/tasks.ts`, call `runTask`. Both JSON-text and tool-as-output extraction patterns are supported by the runner.
+The task registry / runner machinery from Phase 1c + 2a + 2b is already in place — adding new tasks is mostly: write the prompt MD, register in `lib/ai/tasks.ts`, call `runTask`. Both JSON-text and tool-as-output extraction patterns are supported by the runner.
 
 ### Tracked debt
 
@@ -157,6 +216,7 @@ These are saved as memories — load them via the memory system:
 - **`feedback_vercel_framework_preset.md`** — Vercel project Framework Preset must be set to **Next.js** explicitly (not auto-detect / `null`). Auto-detect silently misroutes Next 16 builds, every dynamic route 404s while `public/` static still serves. Verify via `curl /robots.txt → 200` + `curl /login → 404` + `vercel inspect` showing zero `λ` entries.
 - **`feedback_qstash_regional_url.md`** — Upstash QStash needs the `QSTASH_URL` env var alongside `QSTASH_TOKEN` + signing keys. The `@upstash/qstash` SDK's default global endpoint can route to a region your account isn't in, surfacing as `"user (...) not found in this region (eu-central-1)"`. Copy ALL FOUR vars when grabbing creds.
 - **`feedback_anthropic_websearch_timeout.md`** — Anthropic SDK `timeout` must be ≥140s when using the `web_search` server tool with `max_uses ≥ 5`. The legacy 50s timeout (sized to fit Vercel's 60s function cap pre-Fluid) cuts calls off before Sonnet+web_search can finish. Pair with route `export const maxDuration = 300` and keep `attempts × timeout + sum(backoffs) ≤ maxDuration`.
+- **`feedback_serwist_turbopack.md`** — `@serwist/next` doesn't run under Turbopack (Next 16's default). Both `dev` and `build` scripts in `package.json` must pass `--webpack`. Generated SW outputs (`public/sw.js`, `public/swe-worker-*.js`) are gitignored AND added to `eslint.config.mjs` `ignores`.
 - **`project_vercel_fluid_compute.md`** — Forge's Vercel project has Fluid Compute enabled (`resourceConfig.fluid: true`). This lifts the legacy 60s Hobby function cap so background jobs can declare `maxDuration` up to ~300s. Important context for sizing route timeouts.
 - **`project_sentry_deferred.md`** — `@sentry/nextjs` is uninstalled. `instrumentation.ts` is a no-op stub. Re-wire in Phase 3 with dynamic imports gated on `process.env.SENTRY_DSN`.
 - **`project_forge.md`** — Project basics, solo merge policy, single-tenant invariant.
@@ -171,22 +231,27 @@ These are saved as memories — load them via the memory system:
 
 ---
 
-## Architecture map (where things live)
+## Architecture map (where things live, current as of 2026-04-28)
 
 ```
-SPEC.md                          # source of truth
+SPEC.md                          # source of truth (v1.1 + §4.6 rewrite + §4.10 added 2026-04-28)
 SPEC-1.1-CHECKLIST.md
 HANDOFF.md                       # this file
 README.md                        # quickstart + iOS Shortcut setup
-middleware.ts                    # OWNER_EMAIL enforcement, Node runtime
-next.config.ts                   # CSP, HSTS (prod-only), nodeMiddleware flag, serverActions bodySizeLimit (15MB)
+proxy.ts                         # OWNER_EMAIL enforcement, Node runtime (was middleware.ts pre-Next 16)
+next.config.ts                   # CSP, HSTS (prod-only), serverActions bodySizeLimit (15MB), Serwist withSerwist wrapper
 instrumentation.ts               # no-op stub (Sentry deferred)
+package.json                     # `dev` + `build` scripts pass --webpack (Serwist + Turbopack incompat)
 
 app/
+├── manifest.webmanifest         # PWA manifest (slice 1)
+├── sw.ts                        # Service worker source — push + notificationclick + Serwist precache (slice 1)
+├── layout.tsx                   # root layout — manifest link, apple-touch-icon, viewport
+├── globals.css
 ├── (auth)/login/                # magic-link form + server action with §14 spam guard
 ├── auth/callback/route.ts       # exchanges OAuth code → session
-├── (app)/                       # signed-in layout
-│   ├── layout.tsx               # nav, UnsyncedBadge, sign-out
+├── (app)/
+│   ├── layout.tsx               # nav, UnsyncedBadge, EnableNudges banner, sign-out
 │   ├── page.tsx                 # dashboard list
 │   ├── archive/page.tsx
 │   ├── actions.ts               # signOut
@@ -194,69 +259,92 @@ app/
 │       ├── page.tsx             # 4-mode picker; voice default
 │       ├── TextCapture.tsx
 │       ├── VoiceCapture.tsx
-│       ├── PhotoCapture.tsx     # 1e — file picker + caption + preview
+│       ├── PhotoCapture.tsx
 │       ├── actions.ts           # createTextCapture + createPhotoCapture
 │       └── [id]/
-│           ├── page.tsx         # detail; renders attachments via signed URLs
+│           ├── page.tsx         # detail; reads ?nudge=, marks responded_at, renders banners
 │           ├── StateControls.tsx
-│           └── actions.ts       # promoteToSerious / archive / unarchive / delete
+│           ├── ResearchPanel.tsx
+│           ├── RetryResearchButton.tsx
+│           ├── DevelopPanel.tsx       # 2d — collapsible "Develop this" + Mark developed
+│           ├── NudgeBanner.tsx        # 2b slice 3 — banner shown via ?nudge=:id
+│           └── actions.ts       # promoteToSerious / archive / unarchive / delete / markDeveloped / skipNudge
 └── api/
-    └── capture/route.ts         # multipart audio; web (cookie) + Shortcut (Bearer)
+    ├── capture/route.ts         # multipart audio; web (cookie) + Shortcut (Bearer)
+    ├── push/
+    │   ├── subscribe/route.ts   # 2b slice 1 — POST upsert / DELETE by endpoint
+    │   └── test/route.ts        # 2b slice 1 — owner-only test push fanout
+    └── jobs/
+        ├── research/route.ts            # Phase 2a
+        ├── research-recovery/route.ts   # Phase 2a (hourly cron)
+        └── nudge/route.ts               # 2b slice 3 — twice-daily cron (LIVE in Upstash)
 
 components/
 ├── ui/                          # button, input, textarea, badge
 ├── capture/VoiceRecorder.tsx
-└── layout/UnsyncedBadge.tsx
+├── layout/UnsyncedBadge.tsx
+└── push/
+    └── EnableNudges.tsx         # 2b slice 1 — SW register + permission + subscribe + test push
 
 lib/
 ├── env.ts                       # Zod-validated env (no server-only)
 ├── logger.ts                    # structured logger
 ├── utils.ts
+├── qstash.ts                    # Phase 2a — publish client + verifyJobRequest (signature OR dev-bearer)
 ├── ai/
 │   ├── anthropic.ts             # singleton client
 │   ├── openai.ts                # Whisper client
 │   ├── transcribe.ts            # Whisper call + cost log
 │   ├── prompts.ts               # loadPrompt + {{var}} substitution
-│   ├── tasks.ts                 # task registry (classify_capture today)
+│   ├── tasks.ts                 # task registry: classify_capture, research_idea, nudge_question
 │   ├── run.ts                   # runTask: budget check, JSON-text retry, cost log
+│   ├── extract-tool-output.ts   # tool-as-output extraction (research_idea)
+│   ├── research-schema.ts       # ResearchSchema + JSON-schema mirror for submit_research tool
+│   ├── nudge-schema.ts          # 2b slice 2 — NudgeQuestionSchema
 │   └── prompts/
-│       └── classify_capture.md
-├── auth/
-│   └── shortcut.ts              # Bearer extraction + constant-time compare
-├── capture/
-│   ├── kinds.ts                 # CAPTURE_KINDS / STATES / RESEARCH_STATUSES
-│   ├── parse.ts                 # parsePrefix + heuristicTitle
-│   ├── persist.ts               # shared insert path (text + voice + photo)
-│   └── photo.ts                 # MIME allowlist, MIME→ext, MAX_PHOTO_BYTES
+│       ├── classify_capture.md
+│       ├── research.md
+│       └── nudge_question.md            # 2b slice 2
+├── auth/shortcut.ts             # Bearer extraction + constant-time compare
+├── capture/                     # kinds, parse, persist, photo
+├── develop/
+│   └── prompt.ts                # 2d — buildDevelopPrompt({ capture, research })
 ├── http/read-body.ts            # 25MB streaming cap
-├── offline/
-│   ├── idb.ts                   # IndexedDB wrapper
-│   └── upload.ts                # saveAndUpload + extensionFromMime
-├── supabase/
-│   ├── server.ts                # SSR server client
-│   ├── client.ts                # browser client
-│   ├── service.ts               # service-role client
-│   └── middleware.ts            # session refresh + email gate (NO server-only)
+├── nudge/                       # 2b slice 3
+│   ├── select-capture.ts        # weighted-pick comparator (SPEC §4.4 step 2)
+│   └── research-summary.ts      # compact formatter for prompt input
+├── offline/                     # idb, upload (extensionFromMime)
+├── push/                        # 2b slice 1
+│   ├── vapid.ts                 # env validation + cached config
+│   ├── send.ts                  # web-push wrapper + 410 cleanup + last_used_at touch
+│   └── encoding.ts              # urlBase64ToUint8Array (browser side)
+├── research/enqueue.ts          # Phase 2a — fire-and-forget QStash publish
+├── supabase/                    # server, client, service, middleware
 └── types/db.ts                  # generated; pnpm db:types to refresh
+
+public/
+├── manifest is at app/manifest.webmanifest (Next.js convention)
+├── icons/                       # 2b slice 1 — placeholder PNGs (192/512/180), replace with real branding
+├── robots.txt
+├── sw.js                        # GENERATED by @serwist/next on build (gitignored)
+└── swe-worker-*.js              # GENERATED chunked SW workers (gitignored)
 
 supabase/
 ├── config.toml
 └── migrations/
     ├── 20260424153834_initial_schema.sql
-    └── 20260427142755_attachments_storage.sql   # 1e: bucket + RLS
+    └── 20260427142755_attachments_storage.sql
 
-tests/
-└── unit/
-    ├── env.test.ts
-    ├── logger.test.ts
-    ├── capture-parse.test.ts
-    ├── read-body.test.ts
-    ├── upload-extension.test.ts
-    ├── prompts.test.ts
-    ├── classify-schema.test.ts
-    ├── shortcut-auth.test.ts
-    ├── photo-mime.test.ts
-    └── shims/server-only.ts     # vitest alias
+tests/unit/
+├── env.test.ts                  · logger.test.ts                · capture-parse.test.ts
+├── read-body.test.ts            · upload-extension.test.ts      · prompts.test.ts
+├── classify-schema.test.ts      · shortcut-auth.test.ts         · photo-mime.test.ts
+├── research-prompt.test.ts      · research-schema.test.ts       · run-tool-extract.test.ts
+├── push-encoding.test.ts (1)    · push-vapid.test.ts (1)        · push-send.test.ts (1)
+├── nudge-schema.test.ts (2)     · nudge-prompt.test.ts (2)
+├── develop-prompt.test.ts (2d)
+├── nudge-select-capture.test.ts (3)  · nudge-research-summary.test.ts (3)
+└── shims/server-only.ts         # vitest alias for `server-only`
 
 .github/workflows/ci.yml         # lint + typecheck + test on PR
 ```
@@ -274,7 +362,10 @@ tests/
   - `NEXT_PUBLIC_APP_URL`
   - `APP_SCHEDULE_TZ` (defaults to `America/New_York`)
   - `MAX_MONTHLY_COST_USD` (default 25), `MAX_RESEARCH_COST_USD` (default 0.25)
-- **Optional, deferred to later phases**: Sentry, QStash, Resend, VAPID.
+- **Phase-2 vars currently set in production** (still `optional()` in `lib/env.ts`):
+  - QStash quartet: `QSTASH_URL`, `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY` (Phase 2a). All four are required for the daily-nudge cron to verify and publish.
+  - VAPID trio: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (Phase 2b slice 1). Generated via `npx web-push generate-vapid-keys`. Required for `/api/push/*` and `/api/jobs/nudge` to function; routes 503 / log-and-skip without them.
+- **Optional, deferred to later phases**: Sentry (Phase 3), Resend (Phase 2c — `RESEND_API_KEY`, `RESEND_FROM_ADDRESS`).
 - **Vercel** mirrors all required vars across Production / Preview / Development.
 - **Supabase Auth → Redirect URLs:** allowlist includes `http://localhost:3000/**` and `https://forge.mom/**`. Add ephemeral preview URLs only if needed (currently not).
 - **Supabase CLI** is linked to the remote project. Password lives in macOS keychain. To run a migration: `pnpm db:new <name>`, edit the generated SQL, `pnpm db:push`. Always re-run `pnpm db:types` after `db:push`.
@@ -284,12 +375,12 @@ tests/
 ## Tooling cheat sheet
 
 ```bash
-# Dev loop
-pnpm dev                                     # Next dev server
+# Dev loop  (NOTE: `dev` and `build` pass --webpack — Serwist incompat with Turbopack)
+pnpm dev                                     # Next dev server (webpack)
 pnpm typecheck                               # tsc --noEmit (strict + noUncheckedIndexedAccess)
-pnpm lint                                    # next lint
+pnpm lint                                    # eslint . (Next 16 dropped `next lint`)
 pnpm test                                    # vitest run
-pnpm build                                   # production build
+pnpm build                                   # production build (webpack)
 
 # Database
 pnpm db:new <name>                           # creates timestamped migration .sql
@@ -317,15 +408,18 @@ git switch main && git pull
 5. **Idempotency keys (Phase 2).** Job endpoints must follow the Layer A + Layer B pattern in SPEC §10.4. Don't simplify to `ON CONFLICT DO NOTHING` alone.
 6. **Single-user.** No abstractions for "users" plural. RLS guarantees isolation, but UI/UX should never imply sharing or multi-user.
 7. **HEIC photos.** User has switched their iPhone to "Most Compatible" so all uploads are JPEG. Don't add HEIC transcoding — it was a deliberate non-goal (SPEC §19).
-8. **Self-auth API routes need precise middleware allowlist.** `/api/capture` is on the exact-match set in `lib/supabase/middleware.ts`; new routes that use `?source=` or Bearer auth should be added to either `SELF_AUTH_API_PREFIXES` (with a trailing slash to avoid `-batch`-style collisions) or `SELF_AUTH_API_EXACT`.
+8. **Self-auth API routes need precise middleware allowlist.** `/api/capture` is on the exact-match set in `lib/supabase/middleware.ts`; new routes that use `?source=` or Bearer auth should be added to either `SELF_AUTH_API_PREFIXES` (with a trailing slash to avoid `-batch`-style collisions) or `SELF_AUTH_API_EXACT`. `/api/jobs/*` and `/api/push/*` are already self-auth (signature / cookie respectively).
+9. **`responded_at` is the 48h debounce gate.** Capture detail page sets it server-side when loaded with `?nudge=:id`. If you change how nudge taps are routed (e.g. add a query parameter, change the URL shape, intercept in a client component), make sure `responded_at` still gets written on the same code path — otherwise the same capture will get re-picked next slot.
+10. **Cron schedules are LIVE in Upstash.** `/api/jobs/nudge` fires twice daily at 10am + 5pm `America/New_York`. Don't change the route's request/response shape without auditing how Upstash retries handle it (Layer-B `job_runs` makes most retries safe, but a route that throws before the claim is dangerous — the QStash redelivery would retry, claim, then complete, leaving the original retry stuck).
+11. **PWA service worker updates.** When `app/sw.ts` changes meaningfully, iOS users may need to force-quit + reopen the installed PWA to pick up the new SW. Serwist's `skipWaiting + clientsClaim` handles most cases automatically, but the first load after deploy can serve the old shell.
 
 ---
 
 ## How to use this with a new session
 
 1. Open a fresh Claude Code session in `/Users/tommyfitz/Forge`.
-2. Tell it: *"Read HANDOFF.md and the memory directory at `~/.claude/projects/-Users-tommyfitz-Forge/memory/`. The active item is Phase 2b daily nudges — start there."*
-3. The session should report: Phase 1 + Phase 2a (research) shipped and smoke-tested on forge.mom; next item is Phase 2b daily nudges per SPEC §4.4 + §12.x; first PR slice should be VAPID setup + service-worker push registration.
+2. Tell it: *"Read HANDOFF.md and the memory directory at `~/.claude/projects/-Users-tommyfitz-Forge/memory/`. The active item is Phase 2c weekly review — start with the `phase-2c-weekly-tasks` slice."*
+3. The session should report: Phase 1 + Phase 2a (research) + Phase 2b (daily nudges incl. cron live) + Phase 2d (develop-prompt export per rewritten §4.6) all shipped and smoke-tested on forge.mom. Next item is Phase 2c weekly review per SPEC §4.5; first PR slice is `weekly_summary` + `pattern_detection` Sonnet 4.6 tasks (no UI). Pre-reqs to confirm before coding: Resend account, verified sender domain, `RESEND_API_KEY` + `RESEND_FROM_ADDRESS` in Vercel env.
 
 ---
 
