@@ -55,31 +55,49 @@
 | **Phase 2a** | **Auto-research + manual-trigger + delayed retry verified on forge.mom** | **✅ Shipped** |
 | 2b slice 1 | VAPID + push subscriptions + PWA shell | ✅ Merged (PR #11). Smoke-tested on iPhone — banner shown, test push lands. |
 | 2b slice 2 | `nudge_question` task + prompt + Zod schema | ✅ Merged (PR #12). No UI yet; exercised in slice 3. |
-| **2d** | **Develop-prompt export** (replaces in-app conversation per SPEC §4.6 rewrite) | **⏳ Active — this PR** |
-| 2b slice 3 | `/api/jobs/nudge` route + Upstash crons | ⏳ Blocked on 2d so the notification has somewhere to go. |
+| 2d | Develop-prompt export (replaces in-app conversation per SPEC §4.6 rewrite) | ✅ Merged (PR #13). Smoke-tested — Claude follows the audit-then-pressure-test ordering. |
+| **2b slice 3** | **`/api/jobs/nudge` route + nudge banner + Upstash crons** | **⏳ Active — this PR** |
 | 2c | Weekly Socratic review (Resend) | ⏳ Not started |
 
 ---
 
-## Active item — Phase 2d develop-prompt export
+## Active item — Phase 2b slice 3: nudge job routes
 
-**In flight (this PR: `phase-2d-develop-prompt-export`).** SPEC §4.6 was rewritten to drop the in-app conversation runner: a "Develop this" button on `/capture/[id]` generates a prompt the user copies into a fresh Claude (claude.ai) chat, where the actual development conversation happens. Forge supplies the structure (kind-specific templates + research-audit instruction); the external Claude provides the dialogue. State `raw → developed` becomes a manual **Mark developed** action, written to `capture_events` with `via: 'develop_prompt_export'`.
+**In flight (this PR: `phase-2b-nudge-job-routes`).** Cron-driven nudge generation + send + tap-handling.
 
-Why this shape (preserved in SPEC §4.6 — read it before changing): zero per-turn LLM cost in Forge, leverages the user's Claude Opus, and the audit-prompt asks Claude to **expand and verify** the smaller-model research that Phase 2a produced. No `conversations` table writes in v1.
+### What's in the slice
 
-### Phase 2d slice
+- `/api/jobs/nudge?slot=morning|evening` (Node runtime, maxDuration 60s). Order: QStash signature verify → Layer B `job_runs` claim keyed `nudge:{slot}:{YYYY-MM-DD}` (local YMD in `APP_SCHEDULE_TZ` so DST splits don't fork the key) → Layer A eligibility query → `selectCapture()` weighted pick → `runTask('nudge_question')` → `nudges` row insert with `scheduled_for=now()` → push fanout → set `sent_at` if at least one delivery succeeded.
+- `lib/nudge/select-capture.ts` — pure tiered comparator: `raw_with_research > raw_idea > raw_other > developed`, oldest-first within tier, id tie-break for determinism.
+- `lib/nudge/research-summary.ts` — compact formatter for the prompt's `research_summary` var (cap 5 competitors, 1 news item, 280-char market_context).
+- Capture detail page reads `?nudge=:id`, marks `responded_at` server-side if not already, renders `NudgeBanner` above `DevelopPanel`.
+- `skipNudge` server action — explicit Skip with optional reason, writes `responded_at` + `skipped_reason`.
 
-Single PR, ~150 LOC + SPEC rewrite:
+### Cron registration (after merge + production deploy)
 
-- `lib/develop/prompt.ts` — pure `buildDevelopPrompt({ capture, research })`. Two structures: research-present (Part 1 audit + Part 2 pressure-test) and research-absent (pressure-test only). Templates per kind copied verbatim from §4.6.
-- `app/(app)/capture/[id]/DevelopPanel.tsx` — inline collapsible panel on the capture detail page; renders the prompt + Copy + claude.ai link + Mark developed.
-- `markDeveloped` server action in `app/(app)/capture/[id]/actions.ts` — idempotent `raw → developed` flip + `capture_events` row.
-- SPEC §4.6 fully rewritten; SPEC §4.10 added for future "structured expansion sections per capture" (UX TBD).
+Forge uses Upstash QStash schedules (already configured for the research-recovery cron). Nudge needs two daily schedules. Two ways to handle DST:
 
-### Up next after 2d merges
+**Option A — Upstash schedules with timezone (recommended).** Upstash supports `cron_tz` on schedules. Register through the Upstash console (or `qstash schedules create` via API):
+- Morning: cron `0 10 * * *`, timezone `America/New_York`, destination `https://forge.mom/api/jobs/nudge?slot=morning`.
+- Evening: cron `0 17 * * *`, timezone `America/New_York`, destination `https://forge.mom/api/jobs/nudge?slot=evening`.
 
-1. **Phase 2b slice 3 — `phase-2b-nudge-job-routes`**: `/api/jobs/nudge?slot=morning|evening` with eligibility per SPEC §4.4 (`state in ('raw','developed')`, no nudge in last 20h, no response in last 48h), `runTask('nudge_question', ...)`, push send via `lib/push/send.ts`, `nudges` row write, `job_runs` Layer-B idempotency keyed `nudge:{YYYY-MM-DDTHH}`. Tap-the-notification UX: opens `/capture/:id?nudge=:nudge_id`, the existing detail page already shows the Develop panel — no extra UI needed beyond highlighting the nudge question briefly. Add Upstash crons after deploy: `0 14 * * *` UTC (10am ET) and `0 21 * * *` UTC (5pm ET) — note DST drift per the Upstash crons section below.
-2. **Phase 2c — weekly review** (Resend email + push + `/review/:weekId`).
+This survives DST automatically.
+
+**Option B — UTC crons (fallback if `cron_tz` isn't available).** During EDT (Mar–Nov):
+- `0 14 * * *` UTC = 10:00 EDT
+- `0 21 * * *` UTC = 17:00 EDT
+
+During EST (Nov–Mar):
+- `0 15 * * *` UTC = 10:00 EST
+- `0 22 * * *` UTC = 17:00 EST
+
+If we go with Option B, calendar a reminder for the next two DST boundaries (March 8 2027, November 1 2026) to re-cron — or just live with the 1-hour drift for a couple weeks.
+
+After registering: trigger one schedule manually from the Upstash console to confirm end-to-end on `forge.mom` before relying on the cron. Watch logs for `jobs.nudge.completed` (success), `jobs.nudge.no_eligible_captures` (skipped silently — expected when nothing's pending), or `jobs.nudge.task_failed` (LLM call broke).
+
+### Up next after this slice merges
+
+1. **Phase 2c — weekly review** (Resend email + push + `/review/:weekId`). Needs Resend account + verified sender domain.
 
 ---
 

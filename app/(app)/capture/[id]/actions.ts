@@ -42,6 +42,40 @@ export async function retryResearch(id: string) {
   revalidatePath(`/capture/${validId}`);
 }
 
+// SPEC §4.4: explicit user-initiated skip on a nudge banner. Writes both
+// responded_at (so the 48h debounce kicks in) and skipped_reason (logged for
+// future prompt iteration; we want to know why nudges miss).
+export async function skipNudge(formData: FormData) {
+  const nudgeId = formData.get('nudgeId');
+  const reason = formData.get('reason');
+  const validId = z.string().uuid().parse(nudgeId);
+  const reasonStr = typeof reason === 'string' && reason.trim() ? reason.trim() : null;
+
+  const { supabase } = await requireAuthedSupabase();
+
+  const { data: row, error: fetchErr } = await supabase
+    .from('nudges')
+    .select('capture_id, captures!inner(user_id)')
+    .eq('id', validId)
+    .single();
+  if (fetchErr || !row) throw new Error('Nudge not found.');
+
+  const { error: updErr } = await supabase
+    .from('nudges')
+    .update({
+      responded_at: new Date().toISOString(),
+      skipped_reason: reasonStr,
+    })
+    .eq('id', validId);
+  if (updErr) {
+    logger.error('nudge.skip.failed', { nudgeId: validId, err: updErr.message });
+    throw new Error(updErr.message);
+  }
+
+  logger.info('nudge.skipped', { nudgeId: validId, hasReason: reasonStr !== null });
+  revalidatePath(`/capture/${row.capture_id}`);
+}
+
 // SPEC §4.6 (post-revision): "Mark developed" replaces the auto-flip that the
 // in-app conversation loop used to trigger. The user presses this when they're
 // done conversing with an external Claude session about the capture. Idempotent:
