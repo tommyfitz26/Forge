@@ -79,6 +79,9 @@ export function weekStartInstant(weekOfYmd: string): string {
 
   // Start guess: assume local timezone is UTC-5 (EST). Adjust by ±15 hours
   // looking for the instant whose TZ-local date+time equals YYYY-MM-DD 00:00.
+  // hourCycle: 'h23' forces 0-23 reporting. Without it, some Node ICU builds
+  // emit `hour: '24'` for midnight (Node 22+ on Linux is the surfacing one)
+  // even with `hour12: false`, which would skip the 0-hour match below.
   const fmt = new Intl.DateTimeFormat('en-US', {
     timeZone: tz,
     year: 'numeric',
@@ -86,7 +89,7 @@ export function weekStartInstant(weekOfYmd: string): string {
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false,
+    hourCycle: 'h23',
   });
 
   for (let offsetHours = -14; offsetHours <= 14; offsetHours += 1) {
