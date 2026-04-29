@@ -733,145 +733,134 @@ Next.js on Vercel
 
 ### 8.3 Runtime declarations
 
-Routes that handle file uploads or stream large bodies must opt out of the Edge runtime:
+All API routes (`/api/*` and `/api/jobs/*`) declare `runtime = 'nodejs'` — none of Forge's routes are Edge-compatible (Supabase server client + multipart uploads + Anthropic SDK all require Node).
 
 ```ts
-// Required on /api/capture/route.ts and /api/capture/[id]/route.ts
-export const runtime = 'nodejs'
-export const maxDuration = 60  // seconds; Vercel Hobby limit
+export const runtime = 'nodejs';
+export const maxDuration = 300;  // seconds (per-route, see envelope below)
 ```
 
-All `/api/jobs/*` routes also use `runtime = 'nodejs'` (Sonnet calls can take 20–30s; Edge has a 30s hard wall that cannot be raised).
+**Per-route `maxDuration` envelope.** The Forge Vercel project has Fluid Compute enabled (`resourceConfig.fluid: true`), which lifts the legacy 60s Hobby function cap so background jobs can declare up to ~300s. Sized per route:
+
+| Route | maxDuration | Why |
+|---|---|---|
+| `/api/capture/*` | 60s | Whisper + classify is fast |
+| `/api/jobs/nudge` | 60s | Haiku + push fanout, single-digit seconds |
+| `/api/jobs/research` | 300s | Sonnet + `web_search` (max_uses 8) takes 60–140s; SDK timeout 140s; worst case 2 attempts + 2s backoff = 282s, comfortably inside |
+| `/api/jobs/weekly-review/stage1` | 300s | Two Sonnet calls (`pattern_detection` + `weekly_summary`) sequenced |
+| `/api/jobs/weekly-review/stage2` | 60s | Resend send + push fanout, no LLM |
+| `/api/jobs/research-recovery` | 60s | DB scan only |
+
+The Anthropic SDK client (`lib/ai/anthropic.ts`) is configured with a **140s** timeout to match the slowest task (Sonnet + `web_search`). Sized to fit `attempts × timeout + sum(backoffs) ≤ maxDuration`. See memory `feedback_anthropic_websearch_timeout.md`.
 
 ## 9. Project Structure
+
+Reflects the shipped state through Phase 2c. Files marked `(P4)` are deferred to a future phase and not yet implemented; merge / pattern-link UI / settings / export all sit in that bucket.
 
 ```
 forge/
 ├── app/
 │   ├── (auth)/
 │   │   └── login/
-│   │       └── page.tsx            # magic link form
+│   │       ├── page.tsx              # magic link form
+│   │       ├── LoginForm.tsx
+│   │       └── actions.ts            # OWNER_EMAIL spam-guard before signInWithOtp
 │   ├── auth/
-│   │   └── callback/
-│   │       └── route.ts            # supabase auth callback — URL is /auth/callback (outside the (auth) route group so the path isn't stripped)
+│   │   └── callback/route.ts         # /auth/callback — exchanges OAuth code → session
 │   ├── (app)/
-│   │   ├── layout.tsx               # signed-in layout (nav, toasts)
-│   │   ├── page.tsx                 # dashboard: recent captures, serious ideas
+│   │   ├── layout.tsx                # nav, UnsyncedBadge, EnableNudges, sign-out
+│   │   ├── page.tsx                  # dashboard list
+│   │   ├── actions.ts                # signOut
+│   │   ├── archive/page.tsx
 │   │   ├── capture/
-│   │   │   ├── page.tsx             # new capture (voice/text/photo/draw)
+│   │   │   ├── page.tsx              # 4-mode picker; voice default
+│   │   │   ├── TextCapture.tsx · VoiceCapture.tsx · PhotoCapture.tsx
+│   │   │   ├── actions.ts            # createTextCapture + createPhotoCapture
 │   │   │   └── [id]/
-│   │   │       └── page.tsx         # capture detail, research, conversation
-│   │   ├── review/
-│   │   │   └── [weekId]/
-│   │   │       └── page.tsx         # in-app weekly review walkthrough
-│   │   ├── serious/
-│   │   │   └── page.tsx             # serious ideas list
-│   │   ├── archive/
-│   │   │   └── page.tsx
-│   │   ├── settings/
-│   │   │   └── page.tsx             # nudges on/off, weekly on/off, export (no timezone — constant in v1)
-│   │   └── export/
-│   │       └── route.ts             # JSON dump of everything
+│   │   │       ├── page.tsx          # detail; reads ?nudge= → marks responded_at
+│   │   │       ├── StateControls.tsx · ResearchPanel.tsx · RetryResearchButton.tsx
+│   │   │       ├── DevelopPanel.tsx  # §4.6 — collapsible Develop + Mark developed
+│   │   │       ├── NudgeBanner.tsx   # banner shown when arrived via ?nudge=:id
+│   │   │       └── actions.ts        # promote / archive / unarchive / delete / markDeveloped / skipNudge
+│   │   └── review/
+│   │       └── [weekId]/page.tsx     # §4.5 — server-rendered digest
 │   ├── api/
-│   │   ├── capture/
-│   │   │   ├── route.ts             # POST new capture (from Shortcut or web)
-│   │   │   └── [id]/
-│   │   │       ├── route.ts         # GET/PATCH/DELETE
-│   │   │       ├── classify/route.ts
-│   │   │       ├── research/route.ts
-│   │   │       └── state/route.ts
-│   │   ├── conversation/
-│   │   │   └── [captureId]/route.ts # POST turn
-│   │   ├── nudges/
-│   │   │   └── [id]/respond/route.ts
+│   │   ├── capture/route.ts          # POST new capture (web + Shortcut bearer)
 │   │   ├── push/
-│   │   │   └── subscribe/route.ts   # register push subscription
+│   │   │   ├── subscribe/route.ts    # POST upsert / DELETE by endpoint
+│   │   │   └── test/route.ts         # owner-only test push fanout
 │   │   └── jobs/
-│   │       ├── nudge/route.ts       # called by QStash at 10am/5pm
-│   │       ├── weekly-review/
-│   │       │   ├── stage1/route.ts  # QStash Sunday 5pm: pattern detection + summaries
-│   │       │   └── stage2/route.ts  # QStash-chained: email composition + send
-│   │       ├── research/route.ts    # called by QStash after capture
-│   │       └── research-recovery/route.ts  # hourly: resets stuck 'running' research jobs
-│   ├── layout.tsx                    # root layout, metadata, manifest link
-│   ├── manifest.webmanifest
-│   ├── icon.png
-│   └── sw.ts                         # serwist source: push + notificationclick handlers, precache manifest injection point
+│   │       ├── nudge/route.ts                     # QStash 10am/5pm cron
+│   │       ├── research/route.ts                  # On-demand from capture-side enqueue
+│   │       ├── research-recovery/route.ts         # Hourly: stuck 'running' captures
+│   │       └── weekly-review/
+│   │           ├── stage1/route.ts                # QStash Sunday 5pm — pattern + summary tasks
+│   │           └── stage2/route.ts                # QStash-chained — Resend + push + status='sent'
+│   ├── layout.tsx                    # root layout, manifest link, apple-touch-icon
+│   ├── manifest.webmanifest          # PWA manifest
+│   └── sw.ts                         # Serwist source — push + notificationclick + precache
 ├── components/
-│   ├── ui/                           # shadcn primitives (Button, Dialog, Input, etc.)
-│   ├── capture/
-│   │   ├── VoiceRecorder.tsx
-│   │   ├── TextCapture.tsx
-│   │   ├── PhotoCapture.tsx
-│   │   └── DrawingCanvas.tsx
-│   ├── conversation/
-│   │   ├── QuestionCard.tsx
-│   │   └── MessageList.tsx
-│   ├── nudge/NudgeBanner.tsx
-│   └── review/ReviewWalkthrough.tsx
+│   ├── ui/                           # button, input, textarea, badge
+│   ├── capture/VoiceRecorder.tsx
+│   ├── layout/UnsyncedBadge.tsx
+│   └── push/EnableNudges.tsx         # SW register + subscribe + test push
 ├── lib/
 │   ├── supabase/
-│   │   ├── server.ts                 # server client (SSR)
-│   │   ├── client.ts                 # browser client
-│   │   └── service.ts                # service-role client for jobs
+│   │   ├── server.ts · client.ts · service.ts · middleware.ts
 │   ├── ai/
-│   │   ├── anthropic.ts              # client factory, retry wrapper, cost tracking
-│   │   ├── openai.ts                 # Whisper client
-│   │   ├── classify.ts               # classify_capture task
-│   │   ├── research.ts               # research_idea task (uses web_search tool)
-│   │   ├── nudge.ts                  # generate_nudge_question task
-│   │   ├── conversation.ts           # conversation turn logic
-│   │   ├── patterns.ts               # pattern_detection task
-│   │   ├── merge.ts                  # merge_captures task (§4.7)
-│   │   ├── weekly.ts                 # weekly_summary composition
-│   │   └── prompts/                  # loaded at runtime (see §11)
+│   │   ├── anthropic.ts · openai.ts                # SDK clients
+│   │   ├── transcribe.ts                           # Whisper + cost log
+│   │   ├── prompts.ts                              # loadPrompt + {{var}} substitution
+│   │   ├── tasks.ts                                # task registry (§11.1)
+│   │   ├── run.ts                                  # runTask: budget + JSON-retry + cost log
+│   │   ├── extract-tool-output.ts                  # tool-as-output extraction
+│   │   ├── research-schema.ts                      # ResearchSchema + JSON-schema mirror
+│   │   ├── nudge-schema.ts · weekly-summary-schema.ts · pattern-detection-schema.ts
+│   │   └── prompts/
 │   │       ├── classify_capture.md
 │   │       ├── research.md
 │   │       ├── nudge_question.md
-│   │       ├── conversation_system.md
 │   │       ├── pattern_detection.md
-│   │       ├── merge_captures.md
 │   │       └── weekly_summary.md
-│   ├── push/
-│   │   ├── vapid.ts
-│   │   └── send.ts
+│   │       # NOTE: no conversation_system.md (Phase 2d removed in-app conversation)
+│   │       #       merge_captures.md is Phase 4
+│   ├── auth/shortcut.ts                            # Bearer extraction + constant-time compare
+│   ├── capture/                                    # kinds, parse, persist, photo
+│   ├── develop/prompt.ts                           # §4.6 — buildDevelopPrompt
 │   ├── email/
-│   │   └── resend.ts
-│   ├── jobs/
-│   │   ├── qstash.ts                 # QStash client + signature verify
-│   │   └── idempotency.ts            # job_runs helpers
-│   ├── env.ts                        # Zod-validated env at startup
-│   ├── logger.ts                     # structured logger
-│   └── types/
-│       └── db.ts                     # generated from Supabase
-├── db/
-│   └── migrations/                   # Supabase CLI-managed .sql files
-├── scripts/
-│   └── generate-db-types.ts          # runs `supabase gen types typescript` → lib/types/db.ts
-├── tests/
-│   ├── unit/
-│   │   ├── classify.test.ts
-│   │   ├── research-schema.test.ts
-│   │   └── idempotency.test.ts
-│   └── integration/
-│       └── capture-flow.test.ts
+│   │   ├── resend.ts                               # client + ResendNotConfiguredError
+│   │   ├── send.ts                                 # sendWeeklyReviewEmail (Idempotency-Key)
+│   │   ├── compose.ts                              # composeWeeklyReviewEmail / composePushBody
+│   │   └── markdown.ts                             # marked wrapper (gfm + breaks, sync)
+│   ├── http/read-body.ts                           # 25MB streaming cap
+│   ├── jobs/job-runs.ts                            # Layer B claim/mark helpers (§10.4)
+│   ├── nudge/                                      # select-capture, research-summary
+│   ├── offline/                                    # idb, upload (extensionFromMime)
+│   ├── push/                                       # vapid, send, encoding
+│   ├── qstash.ts                                   # publish client + verifyJobRequest
+│   ├── research/enqueue.ts                         # fire-and-forget QStash publish
+│   ├── weekly-review/                              # week-of, captures-block
+│   ├── env.ts                                      # Zod-validated env at startup
+│   ├── logger.ts                                   # structured logger
+│   ├── utils.ts
+│   └── types/db.ts                                 # generated; pnpm db:types to refresh
+├── supabase/migrations/                            # Supabase CLI .sql files
+├── tests/unit/                                     # Vitest — see §10.6
 ├── public/
-│   ├── icons/                        # PWA icons
-│   ├── robots.txt                    # Disallow: / (keep forge.mom out of search results)
-│   └── sw.js                         # GENERATED by @serwist/next during `next build` from app/sw.ts — gitignored, do NOT hand-edit
-├── proxy.ts                             # session check + OWNER_EMAIL enforcement on every request (Next.js 16 proxy, Node runtime by default)
-├── .env.example
-├── .env.local                         # gitignored
-├── next.config.ts
-├── package.json
-├── pnpm-lock.yaml
-├── tsconfig.json
-├── tailwind.config.ts
-├── serwist.config.ts                   # service worker caching rules
-├── vercel.json
+│   ├── icons/                                      # PWA icons
+│   ├── robots.txt                                  # Disallow: /
+│   ├── sw.js                                       # GENERATED by @serwist/next (gitignored)
+│   └── swe-worker-*.js                             # GENERATED chunked SW workers (gitignored)
+├── proxy.ts                                        # session + OWNER_EMAIL enforcement (Next.js 16, Node runtime by default)
+├── instrumentation.ts                              # no-op stub (Sentry deferred — see §10.8)
+├── .env.example · .env.local (gitignored)
+├── next.config.ts                                  # CSP, HSTS (prod-only), serverActions bodySize, withSerwist
+├── eslint.config.mjs · tsconfig.json · package.json · pnpm-lock.yaml
 ├── README.md
-└── SPEC.md                             # this document, lives with the code
+└── SPEC.md                                         # this document
 ```
+
+**Deferred to future phases (not in tree):** `app/(app)/serious/`, `app/(app)/settings/`, `app/(app)/export/`, `app/api/conversation/*`, merge/link UI under `app/(app)/capture/[id]/`. State `serious` is filterable from the dashboard query in v1; export is the JSON dump deferred to Phase 4.
 
 ## 10. Engineering Practices (the "professional" section)
 
@@ -886,8 +875,12 @@ forge/
 
 - `lib/env.ts` uses Zod to validate `process.env` at module load. App throws at startup if any required var is missing.
 - `.env.example` enumerates every var with a comment. Required before first commit.
-- Secrets: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `RESEND_API_KEY`, `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SHORTCUT_API_TOKEN` (for iOS Shortcut auth), `SENTRY_DSN`.
-- Every cron/job endpoint verifies QStash signature (`@upstash/qstash/nextjs` helper). If signature invalid → 401.
+- Secrets (full canonical list in §16):
+  - **Always required:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `OWNER_EMAIL`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `SHORTCUT_API_TOKEN`, `NEXT_PUBLIC_APP_URL`.
+  - **Phase-2 (`optional()` until set):** `QSTASH_URL`, `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `RESEND_API_KEY`, `RESEND_FROM_ADDRESS`.
+  - **Dev-only:** `JOB_DEV_BEARER` (gated on `NODE_ENV !== 'production'`; lets you curl `/api/jobs/*` locally without a QStash signature).
+  - **Phase-3 (deferred):** `SENTRY_DSN` (see §10.8).
+- Every cron/job endpoint verifies the QStash signature via `lib/qstash.ts:verifyJobRequest`. If signature invalid → 401.
 - The Shortcut endpoint (`POST /api/capture?source=shortcut`) verifies `Authorization: Bearer <SHORTCUT_API_TOKEN>`.
 
 ### 10.3 Error handling
@@ -956,10 +949,10 @@ Each run uses an `idempotency_key` (e.g. `nudge:{YYYY-MM-DDTHH}`, `weekly:{YYYY-
 
 ### 10.8 Observability
 
-- **Sentry** for uncaught errors. Every server-side error captured with user + capture context.
-- **Structured logging** via `lib/logger.ts`: JSON logs in prod, pretty in dev. Key events: capture created, classification result, research start/end, nudge sent, push sent, weekly review sent.
-- **API cost tracking**: every Anthropic / OpenAI call writes a row to `api_costs`. Dashboard page at `/settings/costs` shows monthly burn.
-- **Job status UI**: `/settings/jobs` lists recent `job_runs` with status. Helps diagnose silent failures.
+- **Structured logging** via `lib/logger.ts`: JSON logs in prod, pretty in dev. Key events: capture created, classification result, research start/end, nudge sent, push sent, weekly review sent. This is the workhorse — Vercel log search is the day-to-day diagnostic surface.
+- **API cost tracking**: every Anthropic / OpenAI call writes a row to `api_costs`. Settings dashboard for monthly burn is deferred to Phase 4 (the SQL `select sum(cost_usd) from api_costs where created_at >= date_trunc('month', now());` is the v1 equivalent).
+- **Job status**: `select * from job_runs where status='running' or status='failed' order by started_at desc limit 20;` — UI deferred to Phase 4.
+- **Sentry deferred to Phase 3.** `@sentry/nextjs` is currently uninstalled; `instrumentation.ts` is a no-op stub. See memory `project_sentry_deferred.md` for the exact restore steps when re-wiring. Re-add with dynamic imports gated on `process.env.SENTRY_DSN` so the package isn't loaded when DSN is absent.
 
 ### 10.9 Security
 
@@ -988,12 +981,12 @@ Each run uses an `idempotency_key` (e.g. `nudge:{YYYY-MM-DDTHH}`, `weekly:{YYYY-
 
 ### 11.1 Task registry
 
-Every LLM call corresponds to a named task. Tasks are defined in `lib/ai/tasks.ts`:
+Every LLM call corresponds to a named task. Tasks are defined in `lib/ai/tasks.ts`. Currently registered through Phase 2c:
 
 ```ts
 export const TASKS = {
   classify_capture: {
-    model: 'claude-haiku-4-5-20251001',
+    model: 'claude-haiku-4-5',
     promptFile: 'classify_capture.md',
     // ClassifyCaptureSchema = z.object({
     //   kind: z.enum(['problem','idea','observation','research']),
@@ -1010,65 +1003,43 @@ export const TASKS = {
     maxTokens: 4000,
     temperature: 0.3,
     tools: [
-      // web_search is Anthropic's server tool. The `type` field must match the CURRENT
-      // dated identifier from Anthropic's docs at implementation time — e.g. `web_search_YYYYMMDD`.
-      // Do NOT hard-code a version string from this spec; look it up when wiring the tool.
-      // The SDK will reject an unknown or stale identifier. max_uses caps web search calls per run.
+      // web_search is Anthropic's server tool. The `type` field must match the
+      // CURRENT dated identifier from Anthropic's docs at implementation time
+      // (e.g. `web_search_YYYYMMDD`); the SDK rejects unknown/stale ids. Look
+      // it up when wiring or rotating — don't hard-code from this spec.
       { type: '<current-web-search-tool-version>', name: 'web_search', max_uses: 8 },
       { name: 'submit_research', description: 'Submit final structured research result', inputSchema: ResearchSchema },
     ],
+    terminalToolName: 'submit_research',  // tool-as-output (see §11.2)
   },
   nudge_question: {
-    model: 'claude-haiku-4-5-20251001',
+    model: 'claude-haiku-4-5',
     promptFile: 'nudge_question.md',
     outputSchema: NudgeQuestionSchema,
-    maxTokens: 300,
-    temperature: 0.7,
-  },
-  conversation_turn: {
-    model: 'claude-sonnet-4-6',
-    promptFile: 'conversation_system.md',
-    outputSchema: ConversationTurnSchema, // { message, intent, template_question_index, session_complete }
-    maxTokens: 500,
-    temperature: 0.6,
-    // Output via 'submit_turn' tool (same tool-as-output pattern as research)
-  },
-  pattern_detection: {
-    model: 'claude-sonnet-4-6',
-    promptFile: 'pattern_detection.md',
-    outputSchema: PatternsSchema,
-    maxTokens: 2000,
-    temperature: 0.2,
+    maxTokens: 200,
+    temperature: 0.4,  // varied across days for the same capture, but bounded
   },
   weekly_summary: {
     model: 'claude-sonnet-4-6',
     promptFile: 'weekly_summary.md',
     outputSchema: WeeklySummarySchema,
     maxTokens: 4000,
-    temperature: 0.5,
+    temperature: 0.3,
   },
-  merge_captures: {
+  pattern_detection: {
     model: 'claude-sonnet-4-6',
-    promptFile: 'merge_captures.md',
-    // MergeCapturesSchema = z.object({
-    //   title: z.string().min(1).max(80),
-    //   content: z.string().min(1),
-    //   kind: z.enum(['problem','idea','observation','research']),
-    // })
-    // One prompt file; branches internally on the {{merge_type}} variable
-    // ('apply' | 'unify' | 'enrich'). Inputs: both sources' title/content/kind
-    // plus a compact research summary (competitor names + market_context
-    // paragraph only, not the full research blob). See §4.7.
-    outputSchema: MergeCapturesSchema,
-    maxTokens: 2000,
-    temperature: 0.5,
-    tools: [
-      { name: 'submit_merge', description: 'Submit the synthesized merged capture', inputSchema: MergeCapturesSchema },
-    ],
-    // Output via tool-as-output pattern (§11.2).
+    promptFile: 'pattern_detection.md',
+    outputSchema: PatternDetectionSchema,
+    maxTokens: 1500,
+    temperature: 0.2,  // strict — empty pairs is the right answer at this cadence
   },
 } as const;
 ```
+
+**Deferred tasks (not yet registered):**
+
+- **`merge_captures`** — Phase 4 (§4.7 user-initiated merge flow). Sonnet 4.6, tool-as-output via `submit_merge`. One prompt file branches on `{{merge_type}}` ∈ `apply | unify | enrich`. Inputs: both sources' title/content/kind plus a compact research summary (competitor names + market_context paragraph only). Output `{ title, content, kind }`.
+- **`conversation_turn`** — **dropped in Phase 2d.** SPEC §4.6 used to spec an in-app conversation runner with Sonnet + a `submit_turn` terminal tool; v1 ships a deterministic prompt-export instead (no LLM call). The conversation task may return in a future phase if §4.10's structured-expansion-sections idea wants live in-app dialogue, but it's TBD. The original §4.6 conversation design is preserved in git history at the commit before Phase 2d (see HANDOFF).
 
 ### 11.2 Runner
 
@@ -1085,7 +1056,7 @@ The runner:
 2. Loads prompt, substitutes vars.
 3. Calls Anthropic with the right model, tools, params.
 4. **Extracts the structured output.** Two patterns, chosen per task:
-   - **Tool-as-output** (`research_idea`, `conversation_turn`): the task defines a terminal tool (`submit_research`, `submit_turn`) whose `input_schema` mirrors `outputSchema`. The runner finds the last `tool_use` block in the response with `name === <terminal_tool>` and takes its `input` as the raw result. If no terminal tool call is present, that's an error (retry once with an instruction to "call <tool> as your final action").
+   - **Tool-as-output** (currently `research_idea`; `merge_captures` will join in Phase 4): the task declares `terminalToolName` and a custom tool (`submit_research`) whose `input_schema` mirrors `outputSchema`. The runner finds the last `tool_use` block in the response with that name and takes its `input` as the raw result. If no terminal tool call is present, retry once with an instruction to "call <tool> as your final action".
    - **JSON-text** (`classify_capture`, `nudge_question`, `pattern_detection`, `weekly_summary`): the prompt instructs the model to emit JSON only; the runner parses the text content block. Retry once with stricter JSON instructions on parse failure.
 5. Validates the raw result with Zod `.safeParse`. Retry once with stricter instructions on failure.
 6. Logs to `api_costs`.
@@ -1110,16 +1081,16 @@ All tasks include a short system prompt that sets tone:
 
 ### 12.1 QStash schedules
 
-Three QStash schedules (configured via dashboard or code):
+Four QStash schedules (configured one-time via the Upstash dashboard on first deploy):
 
-```
-daily-nudge-morning    → https://forge.mom/api/jobs/nudge?slot=morning          cron: 0 10 * * *   (TZ: America/New_York)
-daily-nudge-evening    → https://forge.mom/api/jobs/nudge?slot=evening          cron: 0 17 * * *   (TZ: America/New_York)
-weekly-review          → https://forge.mom/api/jobs/weekly-review/stage1        cron: 0 17 * * 0   (TZ: America/New_York)
-research-recovery      → https://forge.mom/api/jobs/research-recovery           cron: 0 * * * *    (UTC; timezone irrelevant)
-```
+| Name | URL | Cron | Timezone | Status |
+|---|---|---|---|---|
+| `daily-nudge-morning` | `https://forge.mom/api/jobs/nudge?slot=morning` | `0 10 * * *` | `America/New_York` | ✅ LIVE |
+| `daily-nudge-evening` | `https://forge.mom/api/jobs/nudge?slot=evening` | `0 17 * * *` | `America/New_York` | ✅ LIVE |
+| `weekly-review` | `https://forge.mom/api/jobs/weekly-review/stage1` | `0 17 * * 0` | `America/New_York` | ⏳ Phase 2c — register after slice 3 smoke test |
+| `research-recovery` | `https://forge.mom/api/jobs/research-recovery` | `0 * * * *` | UTC | ⏳ Not yet registered — sweep is implemented but unscheduled in v1 |
 
-The nudge and weekly schedules use `cron_tz: America/New_York` (the `APP_SCHEDULE_TZ` constant — see §4.4 and §16). The `research-recovery` cron runs hourly in UTC; timezone is irrelevant because it scans absolute timestamps. QStash schedule config is one-time manual setup via the Upstash dashboard or `@upstash/qstash` SDK on first deploy.
+The nudge and weekly schedules pin `cron_tz: America/New_York` (the `APP_SCHEDULE_TZ` constant — see §4.4 and §16); QStash converts to the right UTC instant each fire (DST-safe). The `research-recovery` schedule runs hourly in UTC because it only compares absolute timestamps.
 
 The `research-recovery` cron does **two** things (see §4.3 and §10.4):
 1. Resets captures with `research_status = 'running'` and `updated_at < now() - 5 minutes` to `pending` and re-enqueues a research job.
@@ -1211,114 +1182,144 @@ Assigned to the Action Button via iOS Settings → Action Button → Shortcut. A
 
 ## 15. Observability & Error Handling
 
-- **Sentry** initialized via `@sentry/nextjs` with env-gated DSN.
-- Server errors tagged with `capture_id`, `task`, `job_name`.
-- Client errors (mostly capture flow) captured with user context.
-- `/settings/health` internal page shows: last 10 job runs, last 10 LLM calls (task + tokens + cost + duration), unsent nudges, stuck `research_status='running'` captures older than 5 minutes.
+- **Structured logger** (`lib/logger.ts`) is the v1 workhorse — JSON in prod, pretty in dev. Every server-side error is logged with `capture_id`, `task`, or `job_name` context. Vercel log search is the day-to-day diagnostic surface.
+- **`api_costs` table** captures every Anthropic / OpenAI call with task + tokens + cost + duration. Query directly until the Phase 4 settings dashboard ships.
+- **`job_runs` table** records every background-job invocation with status + idempotency key + error. Stale `running` rows are swept by the research-recovery cron (see §10.4 + §12.1).
+- **Sentry deferred to Phase 3.** `@sentry/nextjs` is uninstalled in v1. `instrumentation.ts` is a no-op stub. See memory `project_sentry_deferred.md` for the restore plan; re-wire with dynamic imports gated on `process.env.SENTRY_DSN` so the package isn't loaded when DSN is absent.
+- **`/settings/health` deferred to Phase 4.** The intended dashboard (last 10 job runs, last 10 LLM calls, stuck captures) is replaceable by SQL until then.
 
 ## 16. Environment & Secrets
 
-See `.env.example`:
+Source of truth is `.env.example` in the repo. Mirror at a glance:
 
 ```
-# Supabase
-SUPABASE_URL=
-SUPABASE_ANON_KEY=
+# Supabase — anon URL + key are NEXT_PUBLIC_ because the browser client
+# bundles them. Anon key is public by design; RLS is the security boundary.
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 
-# Owner
+# Owner — single allowed login email; non-matching sessions destroyed by proxy.
 OWNER_EMAIL=you@example.com
 
-# Anthropic
+# Anthropic + OpenAI (Whisper only)
 ANTHROPIC_API_KEY=
-
-# OpenAI (Whisper only)
 OPENAI_API_KEY=
 
-# Resend
+# Resend (Phase 2c — optional until set; routes degrade gracefully without)
 RESEND_API_KEY=
 RESEND_FROM_ADDRESS=forge@you.com
 
-# QStash
+# QStash (Phase 2 — all four required for Phase 2 jobs)
+# QSTASH_URL is necessary alongside the token: the SDK's default endpoint
+# routes to a region your account may not be in. See memory feedback_qstash_regional_url.md.
+QSTASH_URL=
 QSTASH_TOKEN=
 QSTASH_CURRENT_SIGNING_KEY=
 QSTASH_NEXT_SIGNING_KEY=
 
-# Web Push
+# Web Push (Phase 2b — required for /api/push/* and /api/jobs/nudge to function)
+# Generate once with: npx web-push generate-vapid-keys
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
 VAPID_SUBJECT=mailto:you@example.com
 
-# Shortcut auth
-SHORTCUT_API_TOKEN=  # long random string
+# Shortcut auth — long random Bearer (64 hex). Same value in Vercel env AND
+# the iOS Shortcut's Authorization header.
+SHORTCUT_API_TOKEN=
 
-# App
+# Dev escape hatch for /api/jobs/* — when NODE_ENV !== 'production', the
+# QStash signature verifier ALSO accepts Authorization: Bearer <this>. Lets
+# you curl jobs locally without ngrok. Optional. No effect in production.
+JOB_DEV_BEARER=
+
+# App URL (used for absolute redirect targets, push deep-links, QStash)
 NEXT_PUBLIC_APP_URL=https://forge.mom
+
+# Sentry (Phase 3 — deferred; @sentry/nextjs is currently uninstalled and
+# instrumentation.ts is a no-op stub. See §10.8 + memory project_sentry_deferred.md)
 SENTRY_DSN=
 
-# Scheduling
-APP_SCHEDULE_TZ=America/New_York   # single constant; no per-user timezone in v1 (see §4.4)
+# Scheduling — single constant; no per-user timezone in v1 (see §4.4)
+APP_SCHEDULE_TZ=America/New_York
 
 # Budgets
 # MAX_MONTHLY_COST_USD is a hard pre-call check in the task runner (§11.2) — calls abort if exceeded.
 # MAX_RESEARCH_COST_USD is documentation/alerting only; per-research cost is bounded by max_tokens + max_uses (§4.3).
-MAX_RESEARCH_COST_USD=0.25
 MAX_MONTHLY_COST_USD=25
+MAX_RESEARCH_COST_USD=0.25
 ```
 
 ## 17. Build Plan (phased)
 
 Each phase ships a working, deployed app. Don't merge a phase until it's usable end-to-end.
 
-### Phase 0: Foundations (1–2 sessions)
+> **Status note (2026-04-28).** The phasing as actually executed regrouped what the original spec called Phase 2 + Phase 3 into a single Phase 2 with four sub-slices (2a/b/c/d), and pulled the develop-conversation runner out entirely (replaced by the prompt-export flow in §4.6). The current shape below reflects what shipped.
+
+### Phase 0: Foundations ✅ Shipped
 - Next.js + TS + Tailwind + shadcn/ui scaffold.
 - Supabase project schema + RLS + migrations.
-- Magic link auth working end-to-end (single allowed email).
+- Magic-link auth (single allowed email enforced by `proxy.ts`).
 - Empty dashboard page requires auth.
 - Env validation via Zod.
-- Sentry installed.
+- ~~Sentry installed.~~ Deferred to Phase 3 — see §10.8.
 - CI: lint + typecheck + test runs on PR.
-- **Exit criteria:** deploy to Vercel, log in via email, see empty dashboard.
+- **Exit:** deploy to Vercel, log in, see empty dashboard.
 
-### Phase 1: Capture (2–3 sessions)
-- `/capture` page with four modes (voice, text, photo, draw).
-- Voice recorder component + Whisper transcription API route.
+### Phase 1: Capture ✅ Shipped
+- `/capture` page with three modes (voice / text / photo). Drawing mode dropped from v1.
+- Voice recorder + Whisper transcription.
 - Capture entity persists to DB.
-- Classification via Haiku 4.5 runs on save; assigns kind.
+- Classification via Haiku 4.5 on save; assigns kind + 4–8 word title.
 - Capture detail view shows transcript, kind, state.
 - Manual state transitions (raw/developed/serious/archived).
 - iOS Shortcut endpoint (`POST /api/capture?source=shortcut`) works.
 - README has Shortcut setup guide.
-- **Exit criteria:** can capture a voice memo from Action Button and see it classified and stored.
 
-### Phase 2: Research & Development Conversation (2–3 sessions)
-- QStash configured; `/api/jobs/research` endpoint works.
-- Auto-research triggers on `idea` and `research` captures.
-- Capture detail view shows research section with competitors, market context, angles, news.
-- In-app conversation UI: structured Q&A per template.
-- Conversation persistence in `conversations` table.
-- Skip / Skip+reason buttons.
-- `raw → developed` state transition on first conversation turn completed.
-- **Exit criteria:** capture an idea, see research, have a conversation that reaches completion per §4.6, state flips to `developed`.
+### Phase 2: Research, Push, Develop, Weekly Review (executed as 2a → 2d)
 
-### Phase 3: Nudges + Weekly Review (2–3 sessions)
-- PWA manifest + service worker + VAPID push registration.
-- `/api/push/subscribe` endpoint.
-- QStash schedules for 10am/5pm/Sunday.
-- Nudge job: select capture, generate question, send push.
-- Nudge response flow (tap notification → app → answer).
-- Weekly review job: composes summary, runs pattern detection, sends email + push.
-- `/review/:weekId` walkthrough screen.
-- Resend email template.
-- **Exit criteria:** receive a real push at 10am, answer it; receive a Sunday email.
+**2a — Auto-research (Sonnet 4.6 + web_search via QStash)** ✅ Shipped
+- `/api/jobs/research` route + `lib/research/enqueue.ts` fire-and-forget enqueue.
+- Auto-fires on `idea` / `research` captures (initial + 1h delayed retry).
+- Manual retry button on failed captures.
+- `/api/jobs/research-recovery` route exists; cron registration deferred (see §12.1).
+- **Exit:** capture an idea on prod, research lands ~90s later with competitors / market context / angles / news / sources.
 
-### Phase 4: Polish (1–2 sessions)
-- Manual linking UI.
-- Merge captures flow.
-- `/settings/costs`, `/settings/health`, `/settings/jobs`.
+**2b — Daily nudges + push** ✅ Shipped
+- VAPID + `/api/push/{subscribe,test}` routes.
+- PWA shell (manifest, sw.ts, EnableNudges UI).
+- `nudge_question` task (Haiku 4.5).
+- `/api/jobs/nudge?slot=morning|evening` route + tap-handling banner (§4.4).
+- Two QStash crons LIVE (10am / 5pm America/New_York).
+
+**2c — Weekly review** ⏳ In progress
+- `pattern_detection` + `weekly_summary` Sonnet 4.6 tasks.
+- `lib/email/{resend,send,compose,markdown}.ts` — Resend wrapper with `Idempotency-Key: weekly:{week_of}`.
+- `/api/jobs/weekly-review/{stage1,stage2}` chained QStash job.
+- `app/(app)/review/[weekId]/page.tsx` server-rendered digest.
+- Cron registration pending smoke test (see §12.1).
+- **Exit:** Sunday cron fires; email lands; push fires; `/review/[weekId]` renders.
+
+**2d — Develop-prompt export (replaces in-app conversation)** ✅ Shipped — §4.6 rewritten
+- "Develop this" button on `/capture/[id]` generates a deterministic prompt the user pastes into claude.ai.
+- Audit-then-pressure-test prompt structure when research exists; pressure-test only otherwise.
+- `Mark developed` action — flips `state = 'raw' → 'developed'`, writes `capture_events`.
+- The `conversation_turn` task and the `/api/conversation/*` route surface from the original spec are NOT shipped in v1.
+
+### Phase 3: Observability (deferred from Phase 0)
+- Re-add `@sentry/nextjs` with dynamic imports gated on `SENTRY_DSN` env. See memory `project_sentry_deferred.md` for restore steps.
+- (Optional) Move `JOB_DEV_BEARER` env scope to Preview+Development only (currently "All Environments"; harmless but cleaner).
+- Register `research-recovery` QStash schedule.
+- Rotate any keys that have been pasted in chat history during Phase 1+2 setup (Supabase service role, Anthropic, OpenAI, Shortcut, QStash quartet).
+
+### Phase 4: Polish
+- Manual linking UI (§4.7 Manual).
+- Merge captures flow (§4.7) — register `merge_captures` task (Sonnet 4.6, tool-as-output).
+- `/settings/costs`, `/settings/health`, `/settings/jobs` dashboards.
 - Export to JSON (`/export`).
-- Dashboard quality-of-life (serious ideas filter, search).
-- **Exit criteria:** ready for daily use for 6 months without edits.
+- Dashboard quality-of-life (Serious Ideas filter, search).
+- Real PWA icons (current ones are programmatic placeholders).
+- **Exit:** ready for daily use for 6 months without edits.
 
 ## 18. Acceptance Criteria (v1)
 
@@ -1327,7 +1328,7 @@ A working v1 satisfies **all** of:
 1. User can hit Action Button, speak an idea, release button; within 30 seconds, the capture appears on the dashboard, transcribed, classified, and (if `idea`) with research attached or in progress.
 2. User receives push notifications at 10am and 5pm on days with eligible captures.
 3. User receives a Sunday 5pm email and push with the week's captures, research summaries, and any AI-detected patterns.
-4. User can have a structured conversation in the app about any capture, via voice or text, reach the completion rule in §4.6, and see the capture auto-promoted to `developed`.
+4. User can open any capture, copy a develop-prompt to a fresh claude.ai chat (audit-then-pressure-test when research exists; pressure-test only otherwise), and explicitly mark the capture `developed` per §4.6.
 5. User can explicitly promote a capture to `serious` or `archive` it.
 6. User can export all data to JSON.
 7. No data is lost if the user captures offline then reconnects.
@@ -1362,7 +1363,7 @@ Confirm or override before implementation:
 4. **Timezone.** ✅ `America/New_York`, hard-coded as `APP_SCHEDULE_TZ` for v1. No per-user timezone column on `users` table.
 5. **Weekly review day/time.** ✅ Sunday 5:00 PM US Eastern.
 6. **Nudge quiet hours.** Should nudges be suppressed on certain days (e.g., weekends), or always fire at 10am/5pm?
-7. **Email "from" address.** Requires a verified domain in Resend — confirm you'll set this up, or use Resend's default sender for v1.
+7. **Email "from" address.** ✅ `forge@biddrop.app`. The user's free Resend tier already has `biddrop.app` verified for an unrelated project; the free tier doesn't allow a second verified domain, so weekly emails send from there. The local-part doesn't need to match the domain — Resend only validates the domain side. Revisit when/if the Resend plan upgrades and `forge.mom` can be verified. See memory `project_resend_sender.md`.
 8. **Research retry policy.** When research fails, auto-retry once at next nudge window, or only on user tap?
 9. **Supabase schema isolation.** ✅ New free-tier Supabase project (separate from biddrop.app). Uses `public` schema. Zero incremental cost; free projects can coexist with paid ones under the same org.
 10. **PWA install UX.** Show an "install this app" banner on first visit in Safari, or leave it to the user to find Add-to-Home-Screen?
@@ -1377,16 +1378,17 @@ Assuming 3 captures/week, 60% classified as `idea`/`research` (auto-research run
 | Classification (12 captures × Haiku) | ~$0.02 |
 | Research (~7 captures × Sonnet + web search) | ~$0.80 |
 | Nudge questions (60 × Haiku) | ~$0.10 |
-| Conversation turns (~30 × Sonnet) | ~$0.45 |
 | Pattern detection (4 × Sonnet) | ~$0.20 |
 | Weekly summary (4 × Sonnet) | ~$0.30 |
-| **Anthropic + OpenAI total** | **~$2** |
+| **Anthropic + OpenAI total** | **~$1.50** |
 | Resend | Free |
-| Sentry | Free |
+| Sentry | Free (deferred — see §10.8) |
 | QStash | Free |
-| Vercel | Free (Hobby) |
+| Vercel | Free (Hobby + Fluid Compute) |
 | Supabase | $0 (dedicated free-tier project, separate from biddrop.app) |
-| **Total incremental cost** | **~$2–5/month** |
+| **Total incremental cost** | **~$1.50–4/month** |
+
+**Develop-export has $0 marginal cost in Forge** — the prompt is templated server-side with no LLM call (§4.6). The actual development conversation runs in the user's existing claude.ai (Opus) subscription.
 
 ## Appendix B: Shortcut iOS setup (user documentation stub)
 
