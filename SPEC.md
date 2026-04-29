@@ -1087,7 +1087,7 @@ Four QStash schedules (configured one-time via the Upstash dashboard on first de
 |---|---|---|---|---|
 | `daily-nudge-morning` | `https://forge.mom/api/jobs/nudge?slot=morning` | `0 10 * * *` | `America/New_York` | ✅ LIVE |
 | `daily-nudge-evening` | `https://forge.mom/api/jobs/nudge?slot=evening` | `0 17 * * *` | `America/New_York` | ✅ LIVE |
-| `weekly-review` | `https://forge.mom/api/jobs/weekly-review/stage1` | `0 17 * * 0` | `America/New_York` | ⏳ Phase 2c — register after slice 3 smoke test |
+| `weekly-review` | `https://forge.mom/api/jobs/weekly-review/stage1` | `0 17 * * 0` | `America/New_York` | ✅ LIVE (registered 2026-04-29) |
 | `research-recovery` | `https://forge.mom/api/jobs/research-recovery` | `0 * * * *` | UTC | ⏳ Not yet registered — sweep is implemented but unscheduled in v1 |
 
 The nudge and weekly schedules pin `cron_tz: America/New_York` (the `APP_SCHEDULE_TZ` constant — see §4.4 and §16); QStash converts to the right UTC instant each fire (DST-safe). The `research-recovery` schedule runs hourly in UTC because it only compares absolute timestamps.
@@ -1254,7 +1254,7 @@ MAX_RESEARCH_COST_USD=0.25
 
 Each phase ships a working, deployed app. Don't merge a phase until it's usable end-to-end.
 
-> **Status note (2026-04-28).** The phasing as actually executed regrouped what the original spec called Phase 2 + Phase 3 into a single Phase 2 with four sub-slices (2a/b/c/d), and pulled the develop-conversation runner out entirely (replaced by the prompt-export flow in §4.6). The current shape below reflects what shipped.
+> **Status note (2026-04-29).** Phase 2 is fully shipped end-to-end on `forge.mom` — capture (1), research (2a), daily nudges (2b), develop-prompt export (2d), weekly review (2c). The phasing as actually executed regrouped what the original spec called Phase 2 + Phase 3 into a single Phase 2 with four sub-slices (2a/b/c/d), and pulled the develop-conversation runner out entirely (replaced by the prompt-export flow in §4.6). The current shape below reflects what shipped. Three QStash schedules LIVE: morning + evening nudges + Sunday weekly review (see §12.1).
 
 ### Phase 0: Foundations ✅ Shipped
 - Next.js + TS + Tailwind + shadcn/ui scaffold.
@@ -1292,13 +1292,13 @@ Each phase ships a working, deployed app. Don't merge a phase until it's usable 
 - `/api/jobs/nudge?slot=morning|evening` route + tap-handling banner (§4.4).
 - Two QStash crons LIVE (10am / 5pm America/New_York).
 
-**2c — Weekly review** ⏳ In progress
+**2c — Weekly review** ✅ Shipped (2026-04-29)
 - `pattern_detection` + `weekly_summary` Sonnet 4.6 tasks.
 - `lib/email/{resend,send,compose,markdown}.ts` — Resend wrapper with `Idempotency-Key: weekly:{week_of}`.
 - `/api/jobs/weekly-review/{stage1,stage2}` chained QStash job.
 - `app/(app)/review/[weekId]/page.tsx` server-rendered digest.
-- Cron registration pending smoke test (see §12.1).
-- **Exit:** Sunday cron fires; email lands; push fires; `/review/[weekId]` renders.
+- Sunday 17:00 ET cron LIVE in Upstash QStash.
+- **Verified end-to-end on forge.mom (2026-04-29):** Stage 1 → Stage 2 → Resend email + push → digest screen all confirmed. The smoke surfaced a QStash `deduplicationId` colon-restriction bug, hotfixed in PR #21.
 
 **2d — Develop-prompt export (replaces in-app conversation)** ✅ Shipped — §4.6 rewritten
 - "Develop this" button on `/capture/[id]` generates a deterministic prompt the user pastes into claude.ai.

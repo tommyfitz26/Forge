@@ -68,6 +68,39 @@
 
 ---
 
+## Next session — what to work on
+
+**Phase 2 is fully shipped.** No active item awaiting smoke test, no open PR, no pending cron. v1's daily loop (capture → research → nudge → develop-export → weekly review) is live end-to-end on `forge.mom`. The roadmap from here is more discretionary than time-pressured.
+
+### Already covered (don't worry about it)
+
+- **Sunday 2026-05-10 weekly-review cron verification** — a one-time scheduled remote agent fires Monday 2026-05-11 09:00 ET (routine `trig_01Er6yV4ksG4uNfRf8YP5829`, manage at https://claude.ai/code/routines) to search Gmail for the first organic weekly-review email and report `CLEAN` / `PARTIAL` / `FAILED`. Note: the **2026-05-03 cron will fire but produce no email** because `weekOfFor(Sun 5/3)` = `2026-04-27`, which is the smoke-test row and already at `status='sent'` — Stage 1 short-circuits with `already_sent`. The first organic full-chain fire is 5/10.
+
+### Pick from these (no order forced)
+
+1. **Phase 3 Observability (SPEC §17)** — start here if you want a meaningful next chunk.
+   - Re-add `@sentry/nextjs` with dynamic imports gated on `SENTRY_DSN` env. See memory `project_sentry_deferred.md` for the exact restore steps.
+   - Register `research-recovery` QStash schedule (route exists at `app/api/jobs/research-recovery/route.ts`, needs `0 * * * *` UTC in Upstash).
+   - Move `JOB_DEV_BEARER` env scope from "All Environments" to Preview+Development only (currently harmless but tidier).
+   - Rotate keys pasted in chat history during Phase 1+2 setup (Supabase service role, Anthropic, OpenAI, SHORTCUT_API_TOKEN, QStash quartet, Resend if it was ever pasted).
+   - Add `QSTASH_URL` to `lib/env.ts` Zod schema and `.env.example` (works at runtime via `process.env`, but isn't validated at startup — small follow-up).
+
+2. **Phase 4 small polish — pick what feels worth it.** Each is bite-sized and standalone.
+   - **Detail-page polling** for `research_status` (~20–30 LOC, see end-of-file Enhancements section). Becomes valuable now that Phase 2b is live.
+   - **Real PWA icons** — current `public/icons/{icon-192, icon-512, apple-touch-icon}.png` are programmatic dark-square placeholders. Replace before showing the app to anyone.
+   - **Migrate research + nudge routes to `lib/jobs/job-runs.ts`** — slice 3 extracted Layer B claim helpers; the older two routes still inline their own copies (~50 LOC dedup each, out-of-scope cleanup).
+
+3. **Soak time.** v1 just shipped end-to-end three days ago. There's a defensible case for letting Tommy *use* the app for a few weeks before adding more surface area — capture daily, watch the weekly digest, see what actually annoys him in practice. SPEC §4.10 explicitly defers "structured expansion sections per capture" until v1 has run for a few weeks; the same logic applies to most Phase 4 items. If the next session opens with no specific request from Tommy, default to "ask what he wants to work on" rather than picking a phase.
+
+### Don't do without explicit ask
+
+- Phase 4 manual-linking UI (§4.7) — designed but the schema + UX both need a real conversation first.
+- Phase 4 `merge_captures` task — the SPEC sync flagged this as a Phase 4 item; not unlocked until manual linking ships.
+- Anything that touches the develop-prompt export (§4.6) — Tommy ran it through one smoke test, the wording is intentional. Don't refactor for clarity.
+- Anything cron-related on `forge.mom` (registering, modifying, disabling) without explicit confirmation. Three schedules are live and Tommy's habits depend on them.
+
+---
+
 ## Phase 2c — fully shipped (2026-04-28 → 2026-04-29)
 
 ### Slice 1 — `weekly_summary` + `pattern_detection` tasks (PR #16, commit `d48912e`)
