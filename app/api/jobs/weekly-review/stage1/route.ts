@@ -231,7 +231,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { week_of: weekOf, ...counts },
       {
         delaySeconds: 0,
-        deduplicationId: `weekly:${weekOf}:stage2:publish`,
+        deduplicationId: `weekly_${weekOf}_stage2_publish`,
       },
     );
 
