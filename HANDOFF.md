@@ -60,83 +60,15 @@
 | **Phase 2b** | **Daily nudges fully shipped — cron schedules LIVE in Upstash** | **✅ Shipped 2026-04-28** |
 | 2c slice 1 | `weekly_summary` + `pattern_detection` Sonnet 4.6 tasks (no UI) | ✅ Merged (PR #16, commit `d48912e`). |
 | 2c slice 2 | `lib/email/{resend,send}.ts` Resend wrapper with `Idempotency-Key: weekly:{week_of}` | ✅ Merged (PR #17, commit `3285283`). |
-| 2c slice 3 | Chained QStash job (stage1 + stage2) + `/review/[weekId]` digest screen | ⏳ Open as PR #18 (commit `319b355`). CI green. **Awaiting end-to-end smoke test** — see Active item below. |
-| 2c cron | Register Sunday weekly-review schedule in Upstash | ⏳ Pending slice 3 smoke test |
+| 2c slice 3 | Chained QStash job (stage1 + stage2) + `/review/[weekId]` digest screen | ✅ Merged (PR #18, commit `bc0efe2`). |
+| 2c hotfix | Strip colons from QStash `deduplicationId` (caught during slice 3 smoke) | ✅ Merged (PR #21, commit `7c02b0c`). |
+| 2c cron | Register Sunday weekly-review schedule in Upstash | ✅ Registered 2026-04-29 (`0 17 * * 0` America/New_York). |
 | Spec sync | Comprehensive SPEC.md alignment with shipped state through Phase 2c | ✅ Merged (PR #19, commit `04a9236` on 2026-04-28). |
-| **2c** | **Weekly review** | **⏳ Smoke-test pending — code green, env wired (`forge@biddrop.app`)** |
+| **Phase 2c** | **Weekly review fully shipped — chained job, email, push, cron all live** | **✅ Shipped 2026-04-29** |
 
 ---
 
-## Active item — Phase 2c slice 3 smoke test
-
-**Code is open as PR #18, CI green, awaiting an end-to-end smoke test on the Vercel preview (or prod after merge).** This is the chained QStash job that runs Sunday 5pm:
-
-- Stage 1 (`/api/jobs/weekly-review/stage1`) runs `pattern_detection` + `weekly_summary` Sonnet tasks, writes the `weekly_summaries` row, chains Stage 2.
-- Stage 2 (`/api/jobs/weekly-review/stage2`) sends Resend email (`Idempotency-Key: weekly:{week_of}`), fans push out, flips `status='sent'`.
-- `/review/[weekId]/page.tsx` renders the digest with "Open in Forge → Develop" links.
-
-### Pre-reqs (all done)
-
-- ✅ Resend account exists; `biddrop.app` is verified (free tier; can't add a second domain).
-- ✅ `RESEND_API_KEY` + `RESEND_FROM_ADDRESS=forge@biddrop.app` set in Vercel env (Prod + Preview + Dev) and `.env.local`. See memory `project_resend_sender.md`.
-- ✅ The `marked` (markdown→HTML) dep is installed by slice 3.
-
-### Smoke-test playbook
-
-1. **Find the Stage 1 URL.** Use the Vercel preview deploy URL from PR #18 (or prod after merge: `https://forge.mom/api/jobs/weekly-review/stage1`).
-
-2. **Fire Stage 1 manually** with the dev bearer (don't wait until Sunday):
-   ```bash
-   curl -X POST https://<preview-or-prod>/api/jobs/weekly-review/stage1 \
-     -H "Authorization: Bearer $JOB_DEV_BEARER" \
-     -H "Content-Type: application/json" \
-     -d '{}'
-   ```
-   Expect `{"status":"stage2_publishing", "weekOf":"<YYYY-MM-DD>", "captureCount":..., "patternCount":..., "readyCount":...}` after ~30–90s. (Or `"status":"no_captures"` if no captures from this week — make a test capture first if so.)
-
-3. **Verify the row** in Supabase SQL editor:
-   ```sql
-   select id, week_of, status, captures_included,
-          jsonb_array_length(patterns_detected) as patterns,
-          length(email_content_md) as md_len
-   from weekly_summaries order by generated_at desc limit 5;
-   ```
-   Status should be `composing`, `email_content_md` populated.
-
-4. **Wait ~5–15s** then check again — Stage 2 chains automatically via `publishJob('/api/jobs/weekly-review/stage2', { week_of, captureCount, patternCount, readyCount }, { delaySeconds: 0 })`. Status flips to `sent`, `sent_at` populates, `email_message_id` is set.
-
-5. **Inbox check.** Resend email lands at `fitzgibbons.tommy@gmail.com` with subject `This week in Forge — <YYYY-MM-DD>`. Push fires on iPhone PWA simultaneously.
-
-6. **Tap push** → opens `/review/[weekId]` → digest renders with per-capture summaries and "Open in Forge → Develop" links.
-
-7. **If everything's clean**: merge PR #18, then register the Sunday cron in Upstash:
-   ```
-   https://forge.mom/api/jobs/weekly-review/stage1
-   cron: 0 17 * * 0
-   timezone: America/New_York
-   body: {}
-   ```
-
-### Failure modes to know about
-
-- **Email not configured** — slice 3 logs `email.not_configured` and continues (push still tries, row stays `composing`). If you see this in logs, double-check `RESEND_API_KEY` + `RESEND_FROM_ADDRESS` in the env.
-- **Stage 2 not chaining** — look for `jobs.weekly_review.stage1.completed` in Vercel logs (means Stage 1 succeeded), then check Upstash QStash → Messages tab for the queued `/api/jobs/weekly-review/stage2` publish.
-- **Layer A short-circuit** — if you re-fire Stage 1 after a successful run, expect `{"status":"already_sent"}`. To rerun, manually flip the row's status: `update weekly_summaries set status='composing', sent_at=null, email_message_id=null where id='...'` and `delete from job_runs where idempotency_key like 'weekly:%';`. The Resend `Idempotency-Key` header still prevents a duplicate send within Resend's ~24h cache window — bump the URL's `week_of` to test re-sends.
-- **CI pass ≠ runtime pass.** The Node ICU h23 fix (memory `feedback_intl_h23_node_icu.md`) was caught only by GitHub Actions, not local. New `Intl.DateTimeFormat` code should always set `hourCycle: 'h23'`.
-
-### Architecture pointers (where things live)
-
-- Cron entry: `app/api/jobs/weekly-review/stage1/route.ts`, chained `stage2/route.ts`.
-- LLM tasks: `lib/ai/tasks.ts` registers `weekly_summary` (3/15 pricing, temp 0.3) + `pattern_detection` (3/15 pricing, temp 0.2, strict-by-design).
-- Email composition: `lib/email/compose.ts` (subject + markdown + HTML + push body), `lib/email/markdown.ts` (`marked` wrapper), `lib/email/send.ts` (`sendWeeklyReviewEmail` with idempotency key), `lib/email/resend.ts` (client).
-- Week-of computation: `lib/weekly-review/week-of.ts` (Monday in ET, DST-safe).
-- Captures-block formatters: `lib/weekly-review/captures-block.ts`.
-- Layer B claim helpers (extracted in slice 3, used by stage1 + stage2): `lib/jobs/job-runs.ts`. Research + nudge routes still inline their own copies — out-of-scope cleanup.
-- Review screen: `app/(app)/review/[weekId]/page.tsx`.
-
----
-
-## Phase 2c — slices 1 + 2 merged, slice 3 pending smoke (2026-04-28)
+## Phase 2c — fully shipped (2026-04-28 → 2026-04-29)
 
 ### Slice 1 — `weekly_summary` + `pattern_detection` tasks (PR #16, commit `d48912e`)
 
@@ -153,15 +85,30 @@
 - New dep: `resend@^6.12.2`.
 - 11 new tests (5 config + 6 send paths) — full mock of the Resend SDK.
 
-### Slice 3 — Chained job + review screen (PR #18, commit `319b355`) — **awaiting smoke test**
+### Slice 3 — Chained job + review screen (PR #18, commit `bc0efe2`)
 
-See "Active item" above for the complete file inventory + smoke-test playbook. Headlines:
-
+- Stage 1 (`/api/jobs/weekly-review/stage1`) runs `pattern_detection` + `weekly_summary`, writes the `weekly_summaries` row at `composing`, chains Stage 2.
+- Stage 2 (`/api/jobs/weekly-review/stage2`) sends the Resend email (`Idempotency-Key: weekly:{week_of}`), fans push out, flips `status='sent'`.
+- `/review/[weekId]/page.tsx` renders the digest with "Open in Forge → Develop" links.
 - New schema column **NOT** required: Stage 2 receives counts in the QStash chain body, so no migration.
 - Layer B claim helpers extracted to `lib/jobs/job-runs.ts` (research + nudge routes still inline their own copies — out-of-scope cleanup tracked in TODOs).
 - DST-safe `weekOfFor` / `weekStartInstant` in `lib/weekly-review/week-of.ts`. Caught a Node ICU quirk in CI: `hour12: false` returns `'24'` for midnight on Linux Node 22+, so we use `hourCycle: 'h23'` instead. Saved as memory `feedback_intl_h23_node_icu.md`.
 - 31 new tests across week-of computation, captures-block formatters, email composer.
 - New dep: `marked@^18.0.2` for markdown→HTML in the email + `/review/[weekId]` screen.
+
+### Slice 3 smoke test (2026-04-29) — caught the QStash colon bug
+
+Smoke test against prod (PR #18 already merged, fired Stage 1 via `qstash-us-east-1.upstash.io/v2/publish/...`) revealed Stage 1 finished its LLM tasks (row written at `composing`, 3190-char markdown, 2 patterns, 2 captures) then crashed on the chained Stage 2 publish with `500 {"error":"DeduplicationId cannot contain ':'"}`. QStash now restricts `deduplicationId` to `[a-zA-Z0-9_-]`. PR #21 (commit `7c02b0c`) fixed both `weekly-review/stage1` (`weekly:${weekOf}:stage2:publish` → `weekly_${weekOf}_stage2_publish`) and the latent same-defect in `research/route.ts`'s delayed-retry publish. After merge + re-fire, the chain ran clean: Stage 1 re-claimed the `failed` `job_runs` row, re-ran the LLMs, overwrote the `composing` row, Stage 2 sent the email + push, status flipped to `sent`. Saved as memory `feedback_qstash_dedup_id_chars.md`.
+
+### Cron schedule — LIVE in production
+
+Sunday weekly-review schedule registered in Upstash QStash on 2026-04-29:
+
+| Cron        | Timezone           | URL                                                  |
+|-------------|--------------------|------------------------------------------------------|
+| `0 17 * * 0` | `America/New_York` | `https://forge.mom/api/jobs/weekly-review/stage1`   |
+
+DST-safe (Upstash converts to UTC each fire). Health-check via `select * from job_runs where job_name='weekly_review' order by started_at desc limit 5;` or `select * from weekly_summaries order by generated_at desc limit 5;`.
 
 ### Phase 2c associated SPEC sync (PR #19, commit `04a9236`)
 
@@ -270,9 +217,8 @@ Final smoke test passed end-to-end: idea capture → auto-enqueue → Sonnet+web
 
 ### Immediate
 
-1. **Phase 2c slice 3 smoke test.** PR #18 is open, CI green. Run the playbook in the Active Item section above. After it passes: merge, then register the Sunday cron in Upstash.
-2. **Detail-page polling** (small UX polish — see end-of-file "Enhancements" section).
-3. **Real PWA icons.** `public/icons/{icon-192, icon-512, apple-touch-icon}.png` are programmatically-generated dark-square placeholders from a Node PNG encoder. Replace with real branding before showing the app to anyone.
+1. **Detail-page polling** (small UX polish — see end-of-file "Enhancements" section).
+2. **Real PWA icons.** `public/icons/{icon-192, icon-512, apple-touch-icon}.png` are programmatically-generated dark-square placeholders from a Node PNG encoder. Replace with real branding before showing the app to anyone.
 
 The task registry / runner machinery from Phase 1c + 2a + 2b + 2c is already in place — adding new tasks is mostly: write the prompt MD, register in `lib/ai/tasks.ts`, call `runTask`. Both JSON-text and tool-as-output extraction patterns are supported by the runner.
 
@@ -300,6 +246,7 @@ These are saved as memories — load them via the memory system:
 - **`feedback_anthropic_websearch_timeout.md`** — Anthropic SDK `timeout` must be ≥140s when using the `web_search` server tool with `max_uses ≥ 5`. The legacy 50s timeout (sized to fit Vercel's 60s function cap pre-Fluid) cuts calls off before Sonnet+web_search can finish. Pair with route `export const maxDuration = 300` and keep `attempts × timeout + sum(backoffs) ≤ maxDuration`.
 - **`feedback_serwist_turbopack.md`** — `@serwist/next` doesn't run under Turbopack (Next 16's default). Both `dev` and `build` scripts in `package.json` must pass `--webpack`. Generated SW outputs (`public/sw.js`, `public/swe-worker-*.js`) are gitignored AND added to `eslint.config.mjs` `ignores`.
 - **`feedback_intl_h23_node_icu.md`** — `Intl.DateTimeFormat` with `hour12: false` emits `'24'` for midnight on some Node ICU builds (Node 22+ Linux, GitHub Actions). Always use `hourCycle: 'h23'` — it's the only spec-defined way to get 0–23 reporting consistently. Caught only by CI; local macOS Node 20 returns `'00'`.
+- **`feedback_qstash_dedup_id_chars.md`** — QStash's `deduplicationId` accepts only `[a-zA-Z0-9_-]`. Colons return `500 {"error":"DeduplicationId cannot contain ':'"}` and dead-letter after retries. Use `_` or `-` as separators. The `job_runs.idempotency_key` Postgres column has different rules — colons are fine there. Don't conflate the two namespaces. Caught during Phase 2c slice 3 smoke test.
 - **`project_vercel_fluid_compute.md`** — Forge's Vercel project has Fluid Compute enabled (`resourceConfig.fluid: true`). This lifts the legacy 60s Hobby function cap so background jobs can declare `maxDuration` up to ~300s. Important context for sizing route timeouts.
 - **`project_sentry_deferred.md`** — `@sentry/nextjs` is uninstalled. `instrumentation.ts` is a no-op stub. Re-wire in Phase 3 with dynamic imports gated on `process.env.SENTRY_DSN`.
 - **`project_resend_sender.md`** — Forge weekly emails send from `forge@biddrop.app`, not `forge.mom`. Free Resend tier only allows one verified domain; `biddrop.app` is already verified for an unrelated project, so weekly review reuses it. The local-part doesn't need to match the domain side. Don't suggest verifying `forge.mom` until the Resend plan upgrades.
@@ -521,8 +468,8 @@ git switch main && git pull
 ## How to use this with a new session
 
 1. Open a fresh Claude Code session in `/Users/tommyfitz/Forge`.
-2. Tell it: *"Read HANDOFF.md and the memory directory at `~/.claude/projects/-Users-tommyfitz-Forge/memory/`. The active item is the Phase 2c slice 3 smoke test — PR #18 is open and CI green. Run the playbook in HANDOFF's Active Item section against the Vercel preview, then merge and register the cron."*
-3. The session should report: Phase 1 + Phase 2a (research) + Phase 2b (daily nudges, crons LIVE) + Phase 2d (develop-prompt export per rewritten §4.6) + Phase 2c slices 1+2 (Sonnet tasks + Resend wrapper) all merged. Phase 2c slice 3 is open as PR #18; the chained QStash job + `/review/[weekId]` page exist and CI passed; awaiting end-to-end smoke test on the preview deploy. Resend is wired (`forge@biddrop.app`).
+2. Tell it: *"Read HANDOFF.md and the memory directory at `~/.claude/projects/-Users-tommyfitz-Forge/memory/`. Phase 2 is fully shipped end-to-end — capture, research, daily nudges, develop-prompt export, weekly review with cron LIVE. Pick up from the TODOs section."*
+3. The session should report: all of Phase 1 + Phase 2 (2a research / 2b nudges / 2c weekly review / 2d develop export) shipped and verified on `forge.mom`. Three Upstash cron schedules LIVE: morning + evening nudges + Sunday weekly review. Open work is the small TODO list (detail-page polling, real PWA icons) plus tracked debt (Sentry restore in Phase 3, route dedup, key rotation).
 
 ---
 
