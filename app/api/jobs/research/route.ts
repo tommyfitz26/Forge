@@ -164,7 +164,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       await publishJob(
         '/api/jobs/research',
         { captureId, isDelayedRetry: true },
-        { delaySeconds: 3600, deduplicationId: `${idempotencyKey(captureId)}:retry` },
+        { delaySeconds: 3600, deduplicationId: `research_${captureId}_retry` },
       );
       logger.info('jobs.research.delayed_retry_enqueued', { captureId });
     } catch (publishErr) {
