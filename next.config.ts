@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next';
 import withSerwistInit from '@serwist/next';
+import { withSentryConfig } from '@sentry/nextjs';
 import path from 'path';
 
 // Derive the Supabase origin so CSP can whitelist it for fetch + WebSocket.
@@ -15,6 +16,18 @@ const supabaseHost = (() => {
 const supabaseHttp = supabaseHost ? `https://${supabaseHost}` : 'https://*.supabase.co';
 const supabaseWs = supabaseHost ? `wss://${supabaseHost}` : 'wss://*.supabase.co';
 
+// Derive Sentry's ingest origin from the public DSN so the browser SDK can
+// POST error reports past CSP. Falls through to '' when DSN-less (the
+// connect-src entry simply won't render).
+const sentryDsn = process.env['NEXT_PUBLIC_SENTRY_DSN'] ?? '';
+const sentryOrigin = (() => {
+  try {
+    return sentryDsn ? new URL(sentryDsn).origin : '';
+  } catch {
+    return '';
+  }
+})();
+
 const isDev = process.env.NODE_ENV !== 'production';
 
 // CSP — see SPEC §10.9. 'unsafe-inline' is required for Next.js hydration
@@ -28,7 +41,7 @@ const csp = [
   `style-src 'self' 'unsafe-inline'`,
   `img-src 'self' data: blob: https:`,
   `font-src 'self' data:`,
-  `connect-src 'self' ${supabaseHttp} ${supabaseWs}`,
+  `connect-src 'self' ${supabaseHttp} ${supabaseWs}${sentryOrigin ? ` ${sentryOrigin}` : ''}`,
   `media-src 'self' blob:`,
   `frame-ancestors 'none'`,
   `object-src 'none'`,
@@ -81,11 +94,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-// Sentry will be wired back in Phase 3 — see instrumentation.ts + sentry.*.ts
-// files for the shape when we return to it. Keeping it out of the bundle for
-// now eliminates @sentry/node + @opentelemetry dynamic requires that Vercel's
-// edge checker trips on.
-
 // Serwist generates public/sw.js from app/sw.ts on build. Disabled in dev so
 // the SW doesn't cache stale chunks during HMR; iOS push still requires a real
 // build (and the app installed to Home Screen) to test end-to-end.
@@ -97,4 +105,18 @@ const withSerwist = withSerwistInit({
   disable: isDev,
 });
 
-export default withSerwist(nextConfig);
+// Sentry build wrapper — only applied when SENTRY_DSN is set. Sourcemap upload
+// additionally requires SENTRY_AUTH_TOKEN; without it the wrapper still runs
+// but skips the upload step (Sentry shows minified line numbers). Dropping
+// the wrapper entirely when DSN-less keeps build output clean.
+const hasSentry = Boolean(process.env['SENTRY_DSN']);
+const sentryOptions = {
+  silent: !process.env['CI'],
+  disableLogger: true,
+  automaticVercelMonitors: true,
+  ...(process.env['SENTRY_ORG'] ? { org: process.env['SENTRY_ORG'] } : {}),
+  ...(process.env['SENTRY_PROJECT'] ? { project: process.env['SENTRY_PROJECT'] } : {}),
+};
+
+const wrapped = withSerwist(nextConfig);
+export default hasSentry ? withSentryConfig(wrapped, sentryOptions) : wrapped;
