@@ -26,7 +26,11 @@ const EnvSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_ADDRESS: z.string().optional(),
 
-  // QStash (Phase 2; optional until then)
+  // QStash (Phase 2; optional until then). QSTASH_URL is read directly from
+  // process.env by the @upstash/qstash SDK — we validate here so a missing /
+  // typo'd value throws at startup instead of routing to the SDK's default
+  // global endpoint (which can land in a region this account isn't in).
+  QSTASH_URL: z.string().url().optional(),
   QSTASH_TOKEN: z.string().optional(),
   QSTASH_CURRENT_SIGNING_KEY: z.string().optional(),
   QSTASH_NEXT_SIGNING_KEY: z.string().optional(),
