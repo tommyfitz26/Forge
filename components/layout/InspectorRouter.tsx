@@ -4,17 +4,29 @@ import { usePathname } from 'next/navigation';
 import { Inspector, InspSection, InspLabel, InspHeading, InspStat, InspProp, InspEmpty } from './Inspector';
 
 /**
- * Phase 4.1 inspector content is derived from the pathname. Pages don't
- * yet have data behind them, so the inspector shows a generic panel
- * appropriate to the current route. Phase 4.3 will replace this with
- * page-specific inspector content fed from the database.
+ * Inspector context populated server-side in app/(app)/layout.tsx and
+ * threaded down through AppShell. Pages without a corresponding panel
+ * fall back to the generic empty state.
  */
-export function InspectorRouter({ open }: { open: boolean }) {
+export type InspectorContext = {
+  workshop: {
+    active: number;
+    wrapped: number;
+    paused: number;
+    total: number;
+  };
+};
+
+/**
+ * Phase 4.3.1: Workshop inspector now shows real counts. Other panels are
+ * still pathname-derived placeholders pointing forward to data-model phases.
+ */
+export function InspectorRouter({ open, ctx }: { open: boolean; ctx: InspectorContext }) {
   const pathname = usePathname();
-  return <Inspector open={open}>{panelFor(pathname)}</Inspector>;
+  return <Inspector open={open}>{panelFor(pathname, ctx)}</Inspector>;
 }
 
-function panelFor(pathname: string) {
+function panelFor(pathname: string, ctx: InspectorContext) {
   if (pathname === '/today') {
     return (
       <>
@@ -81,20 +93,21 @@ function panelFor(pathname: string) {
     );
   }
 
-  if (pathname === '/workshop') {
+  if (pathname === '/workshop' || pathname.startsWith('/projects/')) {
     return (
       <>
         <InspSection>
           <InspHeading title="Workshop" sub="Your projects" />
-          <InspLabel>By stage</InspLabel>
-          <InspStat k="Active" v="—" />
-          <InspStat k="Drafting" v="—" />
-          <InspStat k="Wrapped" v="—" />
+          <InspLabel>By status</InspLabel>
+          <InspStat k="Active" v={String(ctx.workshop.active)} />
+          <InspStat k="Wrapped" v={String(ctx.workshop.wrapped)} />
+          <InspStat k="Paused" v={String(ctx.workshop.paused)} />
+          <InspStat k="Total" v={String(ctx.workshop.total)} />
         </InspSection>
         <InspSection>
           <InspLabel>Created from</InspLabel>
           <InspStat k="Captures" v="—" />
-          <InspStat k="Explicit + New" v="—" />
+          <InspStat k="+ New explicit" v={String(ctx.workshop.total)} />
         </InspSection>
       </>
     );

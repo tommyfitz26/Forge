@@ -92,7 +92,7 @@ export async function markDeveloped(id: string) {
     .single();
   if (fetchErr || !row) throw new Error('Capture not found.');
   if (row.state !== 'raw') {
-    // Already developed/serious/archived — nothing to do.
+    // Already developed or archived — nothing to do.
     return;
   }
 
@@ -126,24 +126,9 @@ export async function markDeveloped(id: string) {
   revalidatePath(`/capture/${validId}`);
 }
 
-export async function promoteToSerious(id: string) {
-  const { id: validId } = IdSchema.parse({ id });
-  const { supabase } = await requireAuthedSupabase();
-
-  const { error } = await supabase
-    .from('captures')
-    .update({ state: 'serious', updated_at: new Date().toISOString() })
-    .eq('id', validId);
-
-  if (error) {
-    logger.error('capture.promote.failed', { captureId: validId, err: error.message });
-    throw new Error(error.message);
-  }
-
-  logger.info('capture.state_change', { captureId: validId, to: 'serious' });
-  revalidatePath('/');
-  revalidatePath(`/capture/${validId}`);
-}
+// promoteToSerious was removed in Phase 4.3.1. Promotion now means turning a
+// capture into a Project (sets is_project = true and creates a projects row).
+// That flow lands in Phase 4.3.2 as `promoteToProject`.
 
 export async function archiveCapture(formData: FormData) {
   const id = formData.get('id');

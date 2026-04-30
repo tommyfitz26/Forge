@@ -5,11 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import type { CaptureState } from '@/lib/capture/kinds';
 import {
-  promoteToSerious,
   archiveCapture,
   unarchiveCapture,
   deleteCaptureForever,
 } from './actions';
+
+// "Promote to serious" was removed in Phase 4.3.1. Promotion now means
+// "Make this a project" — that flow lands in Phase 4.3.2.
 
 export function StateControls({ id, state }: { id: string; state: CaptureState }) {
   const [isPending, startTransition] = useTransition();
@@ -60,15 +62,6 @@ export function StateControls({ id, state }: { id: string; state: CaptureState }
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        {state !== 'serious' && (
-          <Button
-            variant="outline"
-            disabled={isPending}
-            onClick={() => startTransition(() => promoteToSerious(id))}
-          >
-            Promote to serious
-          </Button>
-        )}
         <Button
           variant="outline"
           disabled={isPending}

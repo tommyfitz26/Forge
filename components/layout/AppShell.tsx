@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Titlebar } from './Titlebar';
-import { InspectorRouter } from './InspectorRouter';
+import { InspectorRouter, type InspectorContext } from './InspectorRouter';
 import { CaptureModal, type CaptureTab } from '@/components/capture/CaptureModal';
 import type { Theme } from '@/lib/theme';
 
@@ -11,10 +11,12 @@ const INSPECTOR_KEY = 'forge_inspector_open';
 export function AppShell({
   email,
   theme,
+  inspectorCtx,
   children,
 }: {
   email: string;
   theme: Theme;
+  inspectorCtx: InspectorContext;
   children: ReactNode;
 }) {
   // Inspector is open by default; persists across sessions via localStorage.
@@ -75,7 +77,7 @@ export function AppShell({
         onOpenCapture={openCapture}
       />
       {children}
-      <InspectorRouter open={inspectorOpen} />
+      <InspectorRouter open={inspectorOpen} ctx={inspectorCtx} />
       <CaptureModal open={captureOpen} initialTab={captureTab} onClose={closeCapture} />
     </div>
   );

@@ -126,11 +126,17 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          is_project: boolean
           kind: string
+          media_kind: string
           original_transcript: string | null
+          project_id: string | null
           research_status: string | null
           source: string
+          source_url: string | null
           state: string
+          suggested_project_confidence: number | null
+          suggested_project_id: string | null
           title: string
           updated_at: string
           user_id: string
@@ -141,11 +147,17 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          is_project?: boolean
           kind: string
+          media_kind?: string
           original_transcript?: string | null
+          project_id?: string | null
           research_status?: string | null
           source?: string
+          source_url?: string | null
           state?: string
+          suggested_project_confidence?: number | null
+          suggested_project_id?: string | null
           title: string
           updated_at?: string
           user_id: string
@@ -156,16 +168,36 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          is_project?: boolean
           kind?: string
+          media_kind?: string
           original_transcript?: string | null
+          project_id?: string | null
           research_status?: string | null
           source?: string
+          source_url?: string | null
           state?: string
+          suggested_project_confidence?: number | null
+          suggested_project_id?: string | null
           title?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "captures_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "captures_suggested_project_id_fkey"
+            columns: ["suggested_project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "captures_user_id_fkey"
             columns: ["user_id"]
@@ -326,6 +358,93 @@ export type Database = {
           {
             foreignKeyName: "nudges_capture_id_fkey"
             columns: ["capture_id"]
+            isOneToOne: false
+            referencedRelation: "captures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          cover_gradient_key: string | null
+          cover_kind: string
+          cover_photo_path: string | null
+          created_at: string
+          deck: string | null
+          deleted_at: string | null
+          id: string
+          kind_seed: string | null
+          last_activity_at: string
+          metadata: Json
+          opened_at: string
+          owner_id: string
+          parts_kind: string
+          progress_pct: number | null
+          seed_capture_id: string | null
+          slug: string
+          stage: string | null
+          status: string
+          target_at: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cover_gradient_key?: string | null
+          cover_kind?: string
+          cover_photo_path?: string | null
+          created_at?: string
+          deck?: string | null
+          deleted_at?: string | null
+          id?: string
+          kind_seed?: string | null
+          last_activity_at?: string
+          metadata?: Json
+          opened_at?: string
+          owner_id: string
+          parts_kind?: string
+          progress_pct?: number | null
+          seed_capture_id?: string | null
+          slug: string
+          stage?: string | null
+          status?: string
+          target_at?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cover_gradient_key?: string | null
+          cover_kind?: string
+          cover_photo_path?: string | null
+          created_at?: string
+          deck?: string | null
+          deleted_at?: string | null
+          id?: string
+          kind_seed?: string | null
+          last_activity_at?: string
+          metadata?: Json
+          opened_at?: string
+          owner_id?: string
+          parts_kind?: string
+          progress_pct?: number | null
+          seed_capture_id?: string | null
+          slug?: string
+          stage?: string | null
+          status?: string
+          target_at?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_seed_capture_id_fkey"
+            columns: ["seed_capture_id"]
             isOneToOne: false
             referencedRelation: "captures"
             referencedColumns: ["id"]
