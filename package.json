@@ -20,6 +20,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
     "@hookform/resolvers": "^5.2.2",
+    "@sentry/nextjs": "^10.51.0",
     "@serwist/next": "^9.5.7",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.104.1",
