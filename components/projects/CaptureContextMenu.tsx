@@ -11,9 +11,10 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUpRight, Archive, ExternalLink, Bookmark, BookmarkCheck } from 'lucide-react';
+import { ArrowUpRight, Archive, ExternalLink, Bookmark, BookmarkCheck, Link2 } from 'lucide-react';
 import type { CaptureKind, CaptureState } from '@/lib/capture/kinds';
 import { togglePin } from '@/app/(app)/top-of-mind/actions';
+import { LinkPalette } from '@/components/links/LinkPalette';
 import { PromoteToProjectModal } from './PromoteToProjectModal';
 
 type Target = {
@@ -43,6 +44,7 @@ export function CaptureContextMenuProvider({ children }: { children: ReactNode }
   const [state, setState] = useState<MenuState>(null);
   const [promoteOpen, setPromoteOpen] = useState(false);
   const [promoteTarget, setPromoteTarget] = useState<Target | null>(null);
+  const [linkSource, setLinkSource] = useState<{ id: string } | null>(null);
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -134,6 +136,17 @@ export function CaptureContextMenuProvider({ children }: { children: ReactNode }
             )}
           </button>
 
+          <button
+            type="button"
+            className="forge-context-menu__item"
+            onClick={() => {
+              setLinkSource({ id: state.target.id });
+              close();
+            }}
+          >
+            <Link2 size={14} /> Link to…
+          </button>
+
           <div className="forge-context-menu__sep" />
 
           <button
@@ -175,6 +188,14 @@ export function CaptureContextMenuProvider({ children }: { children: ReactNode }
             title: promoteTarget.title,
             kind: promoteTarget.kind,
           }}
+        />
+      )}
+
+      {linkSource && (
+        <LinkPalette
+          open
+          onClose={() => setLinkSource(null)}
+          source={{ kind: 'capture', id: linkSource.id }}
         />
       )}
     </ContextMenuCtx.Provider>

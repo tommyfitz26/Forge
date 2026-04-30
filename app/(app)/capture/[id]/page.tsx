@@ -9,6 +9,7 @@ import { StateControls } from './StateControls';
 import { ResearchPanel } from './ResearchPanel';
 import { DevelopPanel } from './DevelopPanel';
 import { NudgeBanner } from './NudgeBanner';
+import { ConnectionsPanel } from '@/components/links/ConnectionsPanel';
 import { buildDevelopPrompt } from '@/lib/develop/prompt';
 import { ResearchSchema } from '@/lib/ai/research-schema';
 import { logger } from '@/lib/logger';
@@ -213,6 +214,8 @@ export default async function CaptureDetail({
           research: research ? (ResearchSchema.safeParse(research).data ?? null) : null,
         })}
       />
+
+      <ConnectionsPanel source={{ kind: 'capture', id: capture.id }} />
 
       <div
         className="pt-5 mt-5"

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowUpRight,
@@ -10,6 +10,7 @@ import {
   BookmarkCheck,
   CheckCircle2,
   Circle,
+  Link2,
   Trash2,
 } from 'lucide-react';
 import {
@@ -27,6 +28,7 @@ import {
   markThreadComplete,
 } from '@/app/(app)/threads/actions';
 import { trashThread } from '@/app/(app)/trash/actions';
+import { LinkPalette } from '@/components/links/LinkPalette';
 
 export type ThreadStatus = 'in_progress' | 'complete' | 'archived';
 
@@ -41,10 +43,18 @@ const Ctx = createContext<UseContextMenuStateApi<ThreadMenuTarget> | null>(null)
 export function ThreadContextMenuProvider({ children }: { children: ReactNode }) {
   const api = useContextMenuState<ThreadMenuTarget>();
   const router = useRouter();
+  const [linkSource, setLinkSource] = useState<{ id: string } | null>(null);
 
   return (
     <Ctx.Provider value={api}>
       {children}
+      {linkSource && (
+        <LinkPalette
+          open
+          onClose={() => setLinkSource(null)}
+          source={{ kind: 'thread', id: linkSource.id }}
+        />
+      )}
       <ContextMenuPopover state={api.state} onClose={api.close}>
         {api.state.open && (
           <>
@@ -77,6 +87,16 @@ export function ThreadContextMenuProvider({ children }: { children: ReactNode })
                   <Bookmark size={14} /> Pin to Top of mind
                 </>
               )}
+            </ContextMenuItem>
+
+            <ContextMenuItem
+              onSelect={() => {
+                if (!api.state.open) return;
+                setLinkSource({ id: api.state.target.id });
+                api.close();
+              }}
+            >
+              <Link2 size={14} /> Link to…
             </ContextMenuItem>
 
             <ContextMenuSeparator />

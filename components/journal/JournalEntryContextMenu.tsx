@@ -1,7 +1,7 @@
 'use client';
 
-import { createContext, useContext, type ReactNode } from 'react';
-import { Bookmark, BookmarkCheck, Trash2 } from 'lucide-react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
+import { Bookmark, BookmarkCheck, Link2, Trash2 } from 'lucide-react';
 import {
   ContextMenuItem,
   ContextMenuPopover,
@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/ContextMenu';
 import { togglePin } from '@/app/(app)/top-of-mind/actions';
 import { deleteJournalEntry } from '@/app/(app)/journal/actions';
+import { LinkPalette } from '@/components/links/LinkPalette';
 
 export type JournalEntryMenuTarget = {
   id: string;
@@ -22,10 +23,18 @@ const Ctx = createContext<UseContextMenuStateApi<JournalEntryMenuTarget> | null>
 
 export function JournalEntryContextMenuProvider({ children }: { children: ReactNode }) {
   const api = useContextMenuState<JournalEntryMenuTarget>();
+  const [linkSource, setLinkSource] = useState<{ id: string } | null>(null);
 
   return (
     <Ctx.Provider value={api}>
       {children}
+      {linkSource && (
+        <LinkPalette
+          open
+          onClose={() => setLinkSource(null)}
+          source={{ kind: 'journal_entry', id: linkSource.id }}
+        />
+      )}
       <ContextMenuPopover state={api.state} onClose={api.close}>
         {api.state.open && (
           <>
@@ -49,6 +58,16 @@ export function JournalEntryContextMenuProvider({ children }: { children: ReactN
                   <Bookmark size={14} /> Pin to Top of mind
                 </>
               )}
+            </ContextMenuItem>
+
+            <ContextMenuItem
+              onSelect={() => {
+                if (!api.state.open) return;
+                setLinkSource({ id: api.state.target.id });
+                api.close();
+              }}
+            >
+              <Link2 size={14} /> Link to…
             </ContextMenuItem>
 
             <ContextMenuSeparator />
