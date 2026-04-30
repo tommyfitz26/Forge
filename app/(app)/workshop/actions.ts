@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
-import { CAPTURE_KINDS } from '@/lib/capture/kinds';
+import { CAPTURE_KINDS, type CaptureKind } from '@/lib/capture/kinds';
 import {
   COVER_GRADIENT_KEYS,
   gradientKeyForKind,
@@ -108,6 +108,146 @@ export async function archiveProject(id: string) {
 
   revalidatePath('/workshop');
   revalidatePath(`/projects/${validId}`);
+}
+
+/**
+ * Phase 4.3.2 — promote a capture into a project.
+ *
+ * Behavior:
+ *   1. Validates input + auth.
+ *   2. If the capture is already is_project=true, returns the existing
+ *      project's id (idempotent — clicking "Make this a project" twice
+ *      doesn't create duplicates).
+ *   3. Otherwise: creates a projects row with seed_capture_id pointing back
+ *      to the capture; updates the capture so is_project=true,
+ *      project_id=<new>, state advances 'raw'→'developed'.
+ *   4. Redirects to /projects/[new id].
+ */
+const PromoteToProjectSchema = z.object({
+  capture_id: z.string().uuid(),
+  title: z.string().trim().min(1, 'Title cannot be empty.').max(160),
+  deck: z.string().trim().max(400).optional().default(''),
+  cover_gradient_key: GradientSchema.optional(),
+});
+
+export async function promoteToProject(formData: FormData): Promise<CreateResult> {
+  const parsed = PromoteToProjectSchema.safeParse({
+    capture_id: formData.get('capture_id'),
+    title: formData.get('title'),
+    deck: formData.get('deck') ?? '',
+    cover_gradient_key: formData.get('cover_gradient_key') ?? undefined,
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' };
+  }
+
+  const authClient = await createClient();
+  const {
+    data: { user },
+  } = await authClient.auth.getUser();
+  if (!user) return { ok: false, error: 'Not signed in.' };
+
+  // Read the source capture — kind drives the project's kind_seed and the
+  // gradient default if the user didn't pick one.
+  const { data: capture, error: fetchErr } = await authClient
+    .from('captures')
+    .select('id, kind, state, user_id, title, project_id, is_project')
+    .eq('id', parsed.data.capture_id)
+    .single();
+  if (fetchErr || !capture) {
+    return { ok: false, error: 'Capture not found.' };
+  }
+  if (capture.user_id !== user.id) {
+    // RLS would catch this too, but explicit error is clearer.
+    return { ok: false, error: 'Not your capture.' };
+  }
+
+  const supabase = await untypedSupabase();
+
+  // Idempotent: if the capture is already promoted, redirect to that project.
+  if (capture.is_project && capture.project_id) {
+    redirect(`/projects/${capture.project_id}`);
+  }
+
+  const slug = await uniqueSlugForOwner(supabase, user.id, parsed.data.title);
+  // captures.kind is text in Postgres; the four-value union lives in
+  // lib/capture/kinds.ts. Cast the row value to the typed union.
+  const captureKind = (capture.kind ?? null) as CaptureKind | null;
+  const gradient: CoverGradientKey =
+    parsed.data.cover_gradient_key ?? gradientKeyForKind(captureKind);
+
+  // 1. Insert the project.
+  const { data: project, error: insertErr } = await supabase
+    .from('projects')
+    .insert({
+      owner_id: user.id,
+      seed_capture_id: capture.id,
+      slug,
+      title: parsed.data.title,
+      deck: parsed.data.deck.length > 0 ? parsed.data.deck : null,
+      kind_seed: capture.kind,
+      cover_kind: 'gradient',
+      cover_gradient_key: gradient,
+      status: 'active',
+    })
+    .select('id')
+    .single();
+
+  if (insertErr || !project) {
+    logger.error('projects.promote.insert_failed', {
+      err: insertErr?.message,
+      captureId: capture.id,
+      ownerId: user.id,
+    });
+    return { ok: false, error: 'Could not create project.' };
+  }
+
+  // 2. Update the capture to point at the new project + flip is_project +
+  // advance raw→developed.
+  const nextState = capture.state === 'raw' ? 'developed' : capture.state;
+  const { error: updateErr } = await supabase
+    .from('captures')
+    .update({
+      is_project: true,
+      project_id: project.id,
+      state: nextState,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', capture.id);
+
+  if (updateErr) {
+    logger.error('projects.promote.update_failed', {
+      err: updateErr.message,
+      captureId: capture.id,
+      projectId: project.id,
+    });
+    // Best-effort cleanup: drop the orphan project so a retry can succeed.
+    await supabase.from('projects').delete().eq('id', project.id);
+    return { ok: false, error: 'Could not link capture to project.' };
+  }
+
+  // 3. Audit log on the capture.
+  await authClient.from('capture_events').insert({
+    capture_id: capture.id,
+    event_type: 'promoted_to_project',
+    payload: {
+      project_id: project.id,
+      from_state: capture.state,
+      to_state: nextState,
+    },
+  });
+
+  logger.info('projects.promoted', {
+    projectId: project.id,
+    captureId: capture.id,
+    ownerId: user.id,
+    kindSeed: capture.kind,
+  });
+
+  revalidatePath('/workshop');
+  revalidatePath('/stream');
+  revalidatePath(`/capture/${capture.id}`);
+  redirect(`/projects/${project.id}`);
 }
 
 export async function restoreProject(id: string) {

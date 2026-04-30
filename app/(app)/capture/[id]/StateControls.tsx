@@ -1,22 +1,40 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
+import { ArrowUpRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import type { CaptureState } from '@/lib/capture/kinds';
+import type { CaptureKind, CaptureState } from '@/lib/capture/kinds';
+import { PromoteToProjectModal } from '@/components/projects/PromoteToProjectModal';
 import {
   archiveCapture,
   unarchiveCapture,
   deleteCaptureForever,
 } from './actions';
 
-// "Promote to serious" was removed in Phase 4.3.1. Promotion now means
-// "Make this a project" — that flow lands in Phase 4.3.2.
+// Phase 4.3.2 — "Make this a project" button. Idempotent: if the capture is
+// already a project, the button becomes a link to the existing project.
 
-export function StateControls({ id, state }: { id: string; state: CaptureState }) {
+export function StateControls({
+  id,
+  state,
+  kind,
+  title,
+  isProject,
+  projectId,
+}: {
+  id: string;
+  state: CaptureState;
+  kind: CaptureKind;
+  title: string;
+  isProject: boolean;
+  projectId: string | null;
+}) {
   const [isPending, startTransition] = useTransition();
   const [showArchive, setShowArchive] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [promoteOpen, setPromoteOpen] = useState(false);
 
   if (state === 'archived') {
     return (
@@ -62,6 +80,24 @@ export function StateControls({ id, state }: { id: string; state: CaptureState }
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
+        {isProject && projectId ? (
+          <Link
+            href={`/projects/${projectId}`}
+            className="forge-btn"
+            style={{ textDecoration: 'none' }}
+          >
+            <ArrowUpRight size={14} /> Open project
+          </Link>
+        ) : (
+          <Button
+            variant="outline"
+            disabled={isPending}
+            onClick={() => setPromoteOpen(true)}
+          >
+            <ArrowUpRight className="h-4 w-4" />
+            Make this a project
+          </Button>
+        )}
         <Button
           variant="outline"
           disabled={isPending}
@@ -70,6 +106,12 @@ export function StateControls({ id, state }: { id: string; state: CaptureState }
           Archive
         </Button>
       </div>
+
+      <PromoteToProjectModal
+        open={promoteOpen}
+        onClose={() => setPromoteOpen(false)}
+        capture={{ id, title, kind }}
+      />
 
       {showArchive && (
         <form

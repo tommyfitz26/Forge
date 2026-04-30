@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
-import { getProject } from '@/lib/db/projects';
+import { formatDistanceToNow } from 'date-fns';
+import { ArrowLeft, ScrollText, Sprout } from 'lucide-react';
+import { captureForProject, getProject } from '@/lib/db/projects';
 import { gradientCssForKey, gradientKeyForKind, type CoverGradientKey } from '@/lib/types/projects';
+import type { CaptureKind } from '@/lib/capture/kinds';
 
 type Params = Promise<{ id: string }>;
 type SearchParams = Promise<{ tab?: string }>;
@@ -34,6 +36,12 @@ export default async function ProjectDetail({
 
   const project = await getProject(id);
   if (!project) notFound();
+
+  // Phase 4.3.2: pull seed + filed captures so the Overview tab can show
+  // what's actually anchored to this project.
+  const { seed, filed } = await captureForProject(id);
+  // The seed appears in the seed-capture card; don't double-list it.
+  const filedExcludingSeed = filed.filter((c) => c.id !== seed?.id);
 
   const gradient: CoverGradientKey =
     (project.cover_gradient_key ?? gradientKeyForKind(project.kind_seed)) as CoverGradientKey;
@@ -119,14 +127,76 @@ export default async function ProjectDetail({
             {project.deck ?? `A new project. Open the capture composer (⌘N) to start filing thoughts here.`}
           </p>
 
+          {seed && (
+            <div className="forge-detail__panel">
+              <div className="forge-detail__panel-head">
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Sprout size={16} style={{ color: 'var(--ember)' }} />
+                  Seed capture
+                </h3>
+                <span className="forge-detail__panel-head__meta">
+                  the thought this project grew from
+                </span>
+              </div>
+              <Link href={`/capture/${seed.id}`} className="forge-list-row" style={{ borderRadius: 8 }}>
+                <div className="forge-list-row__icon">
+                  <ScrollText size={14} />
+                </div>
+                <div className="forge-list-row__body">
+                  <div className="forge-list-row__title">{seed.title}</div>
+                  <div className="forge-list-row__preview">
+                    captured {formatDistanceToNow(new Date(seed.created_at), { addSuffix: true })}
+                  </div>
+                </div>
+                <div className="forge-list-row__right">
+                  <span className={`forge-pill forge-pill--${seed.kind as CaptureKind}`}>{seed.kind}</span>
+                </div>
+              </Link>
+            </div>
+          )}
+
           <div className="forge-detail__panel">
             <div className="forge-detail__panel-head">
-              <h3>Recent activity</h3>
-              <span className="forge-detail__panel-head__meta">phase 4.3.3</span>
+              <h3>Filed captures</h3>
+              <span className="forge-detail__panel-head__meta">
+                {filedExcludingSeed.length === 0
+                  ? 'nothing filed yet'
+                  : `${filedExcludingSeed.length} captures`}
+              </span>
             </div>
-            <p style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--ink-2)', fontSize: 14, margin: 0 }}>
-              Activity feed (captures filed here, threads opened, references saved) lands when threads + filing arrive in 4.3.2/4.3.3.
-            </p>
+            {filedExcludingSeed.length === 0 ? (
+              <p
+                style={{
+                  fontFamily: 'var(--serif)',
+                  fontStyle: 'italic',
+                  color: 'var(--ink-2)',
+                  fontSize: 14,
+                  margin: 0,
+                }}
+              >
+                Right-click any capture in Stream → &ldquo;Make this a project&rdquo; to seed it; or capture
+                from this page (⌘N) to file directly here. Project filing at capture time wires up in 4.3.4.
+              </p>
+            ) : (
+              <div className="forge-list-card" style={{ marginTop: 4 }}>
+                {filedExcludingSeed.map((c) => (
+                  <Link key={c.id} href={`/capture/${c.id}`} className="forge-list-row">
+                    <div className="forge-list-row__icon">
+                      <ScrollText size={14} />
+                    </div>
+                    <div className="forge-list-row__body">
+                      <div className="forge-list-row__title">{c.title}</div>
+                      <div className="forge-list-row__preview">
+                        {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}
+                      </div>
+                    </div>
+                    <div className="forge-list-row__right">
+                      <span className={`forge-pill forge-pill--${c.kind as CaptureKind}`}>{c.kind}</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="forge-detail__panel">

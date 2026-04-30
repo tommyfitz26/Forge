@@ -48,7 +48,9 @@ export default async function CaptureDetail({
   const { data: capture, error } = await supabase
     .from('captures')
     .select(
-      'id, title, kind, state, content, created_at, updated_at, archive_reason, source, research_status',
+      // is_project + project_id are Phase 4.3.1 columns; include here so the
+      // promote-to-project button knows whether to show or jump to the project.
+      'id, title, kind, state, content, created_at, updated_at, archive_reason, source, research_status, is_project, project_id',
     )
     .eq('id', id)
     .single();
@@ -211,7 +213,14 @@ export default async function CaptureDetail({
         className="pt-5 mt-5"
         style={{ borderTop: '1px solid var(--line)' }}
       >
-        <StateControls id={capture.id} state={capture.state as CaptureState} />
+        <StateControls
+          id={capture.id}
+          state={capture.state as CaptureState}
+          kind={capture.kind as CaptureKind}
+          title={capture.title}
+          isProject={Boolean((capture as { is_project?: boolean }).is_project)}
+          projectId={(capture as { project_id?: string | null }).project_id ?? null}
+        />
       </div>
     </div>
   );
