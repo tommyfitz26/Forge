@@ -15,6 +15,13 @@ export type InspectorContext = {
     paused: number;
     total: number;
   };
+  threads: {
+    total: number;
+    in_progress: number;
+    complete: number;
+    archived: number;
+    byKind: { idea: number; problem: number; observation: number; research: number };
+  };
 };
 
 /**
@@ -126,16 +133,25 @@ function panelFor(pathname: string, ctx: InspectorContext) {
     );
   }
 
-  if (pathname === '/threads') {
+  if (pathname === '/threads' || pathname.startsWith('/threads/')) {
     return (
-      <InspSection>
-        <InspHeading title="Threads" sub="Long-form expansion of captures" />
-        <InspLabel>By kind</InspLabel>
-        <InspStat k="idea threads" v="—" />
-        <InspStat k="problem threads" v="—" />
-        <InspStat k="observation threads" v="—" />
-        <InspStat k="research threads" v="—" />
-      </InspSection>
+      <>
+        <InspSection>
+          <InspHeading title="Threads" sub="Long-form expansion of captures" />
+          <InspLabel>By status</InspLabel>
+          <InspStat k="In progress" v={String(ctx.threads.in_progress)} />
+          <InspStat k="Complete" v={String(ctx.threads.complete)} />
+          <InspStat k="Archived" v={String(ctx.threads.archived)} />
+          <InspStat k="Total" v={String(ctx.threads.total)} />
+        </InspSection>
+        <InspSection>
+          <InspLabel>By kind</InspLabel>
+          <InspStat k="idea" v={String(ctx.threads.byKind.idea)} />
+          <InspStat k="problem" v={String(ctx.threads.byKind.problem)} />
+          <InspStat k="observation" v={String(ctx.threads.byKind.observation)} />
+          <InspStat k="research" v={String(ctx.threads.byKind.research)} />
+        </InspSection>
+      </>
     );
   }
 

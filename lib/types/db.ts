@@ -545,6 +545,60 @@ export type Database = {
           },
         ]
       }
+      threads: {
+        Row: {
+          capture_id: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          kind: string
+          owner_id: string
+          pinned: boolean
+          sections: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          capture_id: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          kind: string
+          owner_id: string
+          pinned?: boolean
+          sections?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          capture_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          kind?: string
+          owner_id?: string
+          pinned?: boolean
+          sections?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "threads_capture_id_fkey"
+            columns: ["capture_id"]
+            isOneToOne: true
+            referencedRelation: "captures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "threads_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           created_at: string
