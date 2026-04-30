@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Hash } from 'lucide-react';
 import { listJournalEntries } from '@/lib/db/journal';
+import { DeleteEntryButton } from '@/components/journal/DeleteEntryButton';
 
 type Params = { slug: string };
 
@@ -49,6 +50,9 @@ export default async function TagFilterPage({
               <div className="forge-journal-entry__date">
                 {prettyDate(e.written_at)}
                 <span className="weekday">{weekday(e.written_at)}</span>
+                <span className="forge-journal-entry__date-actions">
+                  <DeleteEntryButton id={e.id} />
+                </span>
               </div>
               <div className="forge-journal-entry__body">{e.body}</div>
               {e.tags.length > 0 && (

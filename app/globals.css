@@ -1432,6 +1432,13 @@ html, body {
   margin-left: auto;
   display: flex; align-items: center; gap: 6px;
 }
+.forge-journal-entry__confirm {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--hot, #b94747);
+}
 .forge-journal-entry__body {
   font-family: var(--serif);
   font-size: 15.5px;
@@ -2121,4 +2128,72 @@ html, body {
 }
 .forge-week-footer__kind {
   display: inline-flex; align-items: center; gap: 6px;
+}
+
+/* ============================================================
+   TRASH — unified soft-deleted list
+   ============================================================ */
+.forge-trash-list {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--bg-2);
+  overflow: hidden;
+}
+.forge-trash-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  transition: background 80ms ease;
+}
+.forge-trash-row:last-child { border-bottom: none; }
+.forge-trash-row[data-pending="true"] { opacity: 0.55; pointer-events: none; }
+.forge-trash-row__icon {
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border-radius: 6px;
+  background: var(--bg-1);
+  color: var(--ink-2);
+}
+.forge-trash-row__body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.forge-trash-row__title {
+  font-family: var(--serif);
+  font-size: 14.5px;
+  color: var(--ink-1);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.forge-trash-row__preview {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.forge-trash-row__meta {
+  display: flex; flex-direction: column; align-items: flex-end;
+  gap: 2px;
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-3);
+}
+.forge-trash-row__kind { color: var(--ember); }
+.forge-trash-row__age { color: var(--ink-3); }
+.forge-trash-row__actions {
+  display: flex; align-items: center; gap: 6px;
+  flex-wrap: wrap;
+}
+.forge-trash-row__confirm {
+  font-family: var(--serif);
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--hot, #b94747);
 }
