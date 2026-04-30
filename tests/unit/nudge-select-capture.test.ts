@@ -84,9 +84,8 @@ describe('selectCapture (SPEC §4.4 weighted strategy)', () => {
 
   it('filters out unsupported states (defense-in-depth)', () => {
     const archived = c({ id: 'archived', state: 'archived' as const });
-    const serious = c({ id: 'serious', state: 'serious' as const });
     const developed = c({ id: 'good', state: 'developed' });
-    expect(selectCapture([archived, serious, developed])?.id).toBe('good');
+    expect(selectCapture([archived, developed])?.id).toBe('good');
   });
 
   it('full-stack precedence: research-succeeded raw > raw idea > raw other > developed', () => {

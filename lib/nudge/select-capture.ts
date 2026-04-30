@@ -31,8 +31,8 @@ function tierFor(c: NudgeCandidate): Tier | null {
     return 'raw_other';
   }
   if (c.state === 'developed') return 'developed';
-  // 'serious' and 'archived' are filtered upstream by the eligibility query —
-  // defense-in-depth only.
+  // 'archived' (and project-anchored captures, when those land) are filtered
+  // upstream by the eligibility query — defense-in-depth only.
   return null;
 }
 

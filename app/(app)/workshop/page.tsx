@@ -1,42 +1,96 @@
 import Link from 'next/link';
-import { Plus, Hammer } from 'lucide-react';
+import { Hammer } from 'lucide-react';
+import { listProjects } from '@/lib/db/projects';
+import { gradientKeyForKind, type CoverGradientKey } from '@/lib/types/projects';
+import { ProjectCover } from '@/components/projects/ProjectCover';
+import { NewProjectButton } from '@/components/projects/WorkshopHeader';
 
-export default function WorkshopPage() {
-  // Phase 4.1: empty state. Phase 4.3 backs this with the `projects` table
-  // and the right-click-on-capture promotion flow.
+export default async function WorkshopPage() {
+  const projects = await listProjects({});
+
   return (
     <div className="space-y-6">
       <div className="forge-page-header">
         <h1>Workshop</h1>
-        <span className="forge-page-header__meta">your projects, on the bench</span>
+        <span className="forge-page-header__meta">
+          {projects.length === 0
+            ? 'no projects yet'
+            : `${projects.length} ${projects.length === 1 ? 'project' : 'projects'}, on the bench`}
+        </span>
         <div className="forge-page-header__actions">
-          <button type="button" className="forge-btn">
-            <Plus size={14} /> New project
-          </button>
+          <NewProjectButton />
         </div>
       </div>
 
-      <div
-        className="forge-empty rounded-xl border"
-        style={{ borderColor: 'var(--line)', background: 'var(--bg-2)' }}
-      >
-        <div className="forge-empty__glyph">
-          <Hammer size={32} className="mx-auto" />
+      {projects.length === 0 ? (
+        <div
+          className="forge-empty rounded-xl border"
+          style={{ borderColor: 'var(--line)', background: 'var(--bg-2)' }}
+        >
+          <div className="forge-empty__glyph">
+            <Hammer size={32} className="mx-auto" />
+          </div>
+          <div className="forge-empty__msg">
+            Projects emerge from material. The usual flow: capture an idea or problem,
+            work on it, and when it has weight, promote it to a project.
+            <br />
+            <span className="text-xs" style={{ fontFamily: 'var(--mono)' }}>
+              The promote-from-capture flow lands in Phase 4.3.2. For now, use &ldquo;+ New project&rdquo; above.
+            </span>
+          </div>
         </div>
-        <div className="forge-empty__msg">
-          Projects emerge from material. The usual flow: capture an idea or problem, work on it, and when it has weight,
-          right-click → &ldquo;Make this a project.&rdquo;
-          <br />
-          <span className="text-xs" style={{ fontFamily: 'var(--mono)' }}>
-            (Phase 4.3 ships projects + the promote-from-capture flow.)
-          </span>
+      ) : (
+        <div className="forge-projects">
+          {projects.map((p) => {
+            const gradient: CoverGradientKey =
+              (p.cover_gradient_key ?? gradientKeyForKind(p.kind_seed)) as CoverGradientKey;
+            const featured = p.status === 'active';
+            const barClass =
+              p.kind_seed === 'research'
+                ? 'forge-proj__bar forge-proj__bar--gold'
+                : p.kind_seed === 'problem'
+                  ? 'forge-proj__bar forge-proj__bar--moss'
+                  : p.kind_seed === 'observation'
+                    ? 'forge-proj__bar forge-proj__bar--plum'
+                    : 'forge-proj__bar';
+            const statusLabel =
+              p.status === 'active'
+                ? p.stage ?? 'Active'
+                : p.status === 'wrapped'
+                  ? 'Wrapped'
+                  : p.status === 'paused'
+                    ? 'Paused'
+                    : 'Archived';
+            return (
+              <Link
+                key={p.id}
+                href={`/projects/${p.id}`}
+                className="forge-proj"
+                data-featured={featured ? 'true' : 'false'}
+              >
+                <ProjectCover gradientKey={gradient} stage={statusLabel} />
+                <div className="forge-proj__body">
+                  <h3 className="forge-proj__title">
+                    {featured && <span className="forge-proj__title-pin">●</span>}
+                    {p.title}
+                  </h3>
+                  {p.deck && <div className="forge-proj__deck">{p.deck}</div>}
+                  <div className="forge-proj__meta">
+                    {p.kind_seed && <span>#{p.kind_seed}</span>}
+                    {p.kind_seed && <span className="dot" />}
+                    <span>opened {new Date(p.opened_at).toLocaleDateString()}</span>
+                  </div>
+                  {typeof p.progress_pct === 'number' && (
+                    <div className={barClass}>
+                      <div style={{ width: `${Math.max(0, Math.min(100, p.progress_pct))}%` }} />
+                    </div>
+                  )}
+                </div>
+              </Link>
+            );
+          })}
         </div>
-        <div className="mt-4">
-          <Link href="/capture" className="forge-btn forge-btn--primary">
-            <Plus size={14} /> Start a capture
-          </Link>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

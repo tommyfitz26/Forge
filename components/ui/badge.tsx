@@ -13,7 +13,6 @@ const STATE_STYLES: Record<CaptureState, string> = {
   raw: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300',
   developed:
     'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
-  serious: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300',
   archived: 'bg-neutral-200 text-neutral-500 dark:bg-neutral-900 dark:text-neutral-500',
 };
 
