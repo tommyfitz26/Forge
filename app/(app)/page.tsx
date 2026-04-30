@@ -1,68 +1,7 @@
-import Link from 'next/link';
-import { formatDistanceToNow } from 'date-fns';
-import { Plus } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
-import { Button } from '@/components/ui/button';
-import { KindBadge, StateBadge } from '@/components/ui/badge';
-import type { CaptureKind, CaptureState } from '@/lib/capture/kinds';
+import { redirect } from 'next/navigation';
 
-const RECENT_LIMIT = 20;
-
-export default async function Home() {
-  const supabase = await createClient();
-  const { data: captures } = await supabase
-    .from('captures')
-    .select('id, title, kind, state, created_at')
-    .neq('state', 'archived')
-    .order('created_at', { ascending: false })
-    .limit(RECENT_LIMIT);
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="mt-1 text-sm text-neutral-500">Recent captures.</p>
-        </div>
-        <Link href="/capture">
-          <Button>
-            <Plus className="h-4 w-4" />
-            New capture
-          </Button>
-        </Link>
-      </div>
-
-      {!captures || captures.length === 0 ? (
-        <div className="rounded-md border border-dashed border-neutral-300 p-8 text-center text-sm text-neutral-500 dark:border-neutral-700">
-          Nothing captured yet.{' '}
-          <Link href="/capture" className="underline">
-            Start capturing
-          </Link>
-          .
-        </div>
-      ) : (
-        <ul className="divide-y divide-neutral-200 overflow-hidden rounded-md border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
-          {captures.map((c) => (
-            <li key={c.id}>
-              <Link
-                href={`/capture/${c.id}`}
-                className="flex items-center justify-between gap-3 p-4 hover:bg-neutral-50 dark:hover:bg-neutral-900"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{c.title}</div>
-                  <div className="mt-0.5 text-xs text-neutral-500">
-                    {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <KindBadge kind={c.kind as CaptureKind} />
-                  <StateBadge state={c.state as CaptureState} />
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
+// Phase 4.1: root of the authed shell now lands on /today.
+// The previous dashboard list lives at /stream.
+export default function RootRedirect() {
+  redirect('/today');
 }
