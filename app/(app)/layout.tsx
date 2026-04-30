@@ -13,6 +13,7 @@ import { journalCounts } from '@/lib/db/journal';
 import { pinCounts } from '@/lib/db/pins';
 import { computeStreakSummary } from '@/lib/db/streak';
 import { getTodaysIntention } from '@/lib/db/intentions';
+import { thisWeekAggregates } from '@/lib/db/this-week';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -29,7 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Phase 4.3.4: Sidebar tags + journal/pin counts.
   // Phase 4.3.5: Streak summary + today's intention feed the practice card
   // and Today inspector.
-  const [activeProjects, counts, threads, tags, journal, pins, streak, todaysIntention] =
+  const [activeProjects, counts, threads, tags, journal, pins, streak, todaysIntention, weekAgg] =
     await Promise.all([
       listProjects({ status: 'active', limit: 8 }),
       projectCounts(),
@@ -39,6 +40,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       pinCounts(),
       computeStreakSummary(),
       getTodaysIntention(),
+      thisWeekAggregates(),
     ]);
   const projectsForSidebar: SidebarProject[] = activeProjects.map((p) => ({
     id: p.id,
@@ -78,6 +80,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           focusSet: Boolean(todaysIntention),
           dayStreak: streak.current,
           bestStreak: streak.best,
+        },
+        thisWeek: {
+          captureTotal: weekAgg.captureTotal,
+          focusSetDays: weekAgg.focusSetDays,
+          journalDays: weekAgg.journalDays,
+          byKind: weekAgg.byKind,
         },
       }}
     >

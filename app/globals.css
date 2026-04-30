@@ -1967,3 +1967,158 @@ html, body {
   border-color: var(--ember-soft);
   box-shadow: 0 0 0 3px var(--ember-soft);
 }
+
+/* ============================================================
+   THIS WEEK — 7-column grid
+   ============================================================ */
+.forge-week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+}
+.forge-week-day {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 12px 12px 14px;
+  min-height: 220px;
+  display: flex; flex-direction: column;
+  gap: 10px;
+}
+.forge-week-day[data-today="true"] {
+  border-color: color-mix(in oklab, var(--ember) 40%, var(--line));
+  background: linear-gradient(135deg, var(--ember-soft) 0%, var(--bg-2) 60%);
+  box-shadow: var(--shadow-1);
+}
+.forge-week-day[data-future="true"] {
+  background: var(--bg-1);
+  opacity: 0.78;
+}
+.forge-week-day__header {
+  display: flex; flex-direction: column; gap: 1px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+.forge-week-day__name {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-3);
+}
+.forge-week-day[data-today="true"] .forge-week-day__name { color: var(--ember); }
+.forge-week-day__num {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--ink-0);
+  line-height: 1;
+}
+.forge-week-day[data-today="true"] .forge-week-day__num { color: var(--ember); }
+.forge-week-day__focus {
+  display: flex; align-items: flex-start; gap: 5px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink-1);
+  background: var(--ember-soft);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.forge-week-day__focus-ico {
+  margin-top: 2px;
+  flex-shrink: 0;
+  color: var(--ember);
+}
+.forge-week-day__captures {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.forge-week-day__cap {
+  display: flex; align-items: center; gap: 6px;
+  text-decoration: none;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--ink-1);
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin: 0 -4px;
+}
+.forge-week-day__cap:hover {
+  background: var(--bg-1);
+  color: var(--ember);
+}
+.forge-week-day__cap-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.forge-week-day__dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--ink-3);
+}
+.forge-week-day__dot[data-kind="idea"]        { background: var(--ember); }
+.forge-week-day__dot[data-kind="research"]    { background: var(--gold); }
+.forge-week-day__dot[data-kind="problem"]     { background: var(--moss); }
+.forge-week-day__dot[data-kind="observation"] { background: var(--plum); }
+.forge-week-day__journal {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  text-decoration: none;
+  margin-top: auto;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+}
+.forge-week-day__journal:hover { color: var(--ember); }
+.forge-week-day__empty {
+  margin-top: auto;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+/* This-week footer strip */
+.forge-week-footer {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.forge-week-footer__strip {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-2);
+}
+.forge-week-footer__strip strong {
+  color: var(--ink-0);
+  font-weight: 500;
+  font-family: var(--serif);
+  font-style: normal;
+  font-size: 14px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.forge-week-footer__sep { color: var(--ink-4); }
+.forge-week-footer__kinds {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 14px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-2);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.forge-week-footer__kind {
+  display: inline-flex; align-items: center; gap: 6px;
+}

@@ -36,6 +36,12 @@ export type InspectorContext = {
     dayStreak: number;
     bestStreak: number;
   };
+  thisWeek: {
+    captureTotal: number;
+    focusSetDays: number;
+    journalDays: number;
+    byKind: { idea: number; problem: number; observation: number; research: number };
+  };
 };
 
 /**
@@ -71,17 +77,28 @@ function panelFor(pathname: string, ctx: InspectorContext) {
   }
 
   if (pathname === '/this-week') {
+    const w = ctx.thisWeek;
     return (
       <>
         <InspSection>
           <InspHeading title="This week" sub="The shape of the week" />
-          <InspStat k="Captures" v="—" />
-          <InspStat k="Sessions" v="—" />
-          <InspStat k="Tasks done" v="—" />
+          <InspLabel>At a glance</InspLabel>
+          <InspStat k="Captures" v={String(w.captureTotal)} />
+          <InspStat k="Focuses set" v={`${w.focusSetDays} / 7`} />
+          <InspStat k="Journal days" v={`${w.journalDays} / 7`} />
         </InspSection>
+        {w.captureTotal > 0 && (
+          <InspSection>
+            <InspLabel>By kind</InspLabel>
+            <InspStat k="idea" v={String(w.byKind.idea)} />
+            <InspStat k="problem" v={String(w.byKind.problem)} />
+            <InspStat k="observation" v={String(w.byKind.observation)} />
+            <InspStat k="research" v={String(w.byKind.research)} />
+          </InspSection>
+        )}
         <InspSection>
           <InspLabel>Calendar</InspLabel>
-          <InspEmpty>Connect Google Calendar in Phase 4.3 to see scheduled sessions here.</InspEmpty>
+          <InspEmpty>Google Calendar sync arrives in a later slice.</InspEmpty>
         </InspSection>
       </>
     );
