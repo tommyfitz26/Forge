@@ -23,6 +23,10 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: '#0e0f12',
+  width: 'device-width',
+  initialScale: 1,
+  // Allow the user to zoom; "minimal-ui" is fine for the standalone PWA.
+  viewportFit: 'cover',
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

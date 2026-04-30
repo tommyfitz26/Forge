@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Bell, Plus, PanelRight, Search, Flame } from 'lucide-react';
+import { Bell, Plus, PanelRight, Search, Flame, Menu } from 'lucide-react';
 import { ThemePicker } from '@/components/ui/theme-picker';
 import { CmdPalette } from '@/components/cmd-palette';
 import { UnsyncedBadge } from './UnsyncedBadge';
@@ -45,11 +45,13 @@ export function Titlebar({
   email,
   theme,
   onToggleInspector,
+  onToggleSidebar,
   onOpenCapture,
 }: {
   email: string;
   theme: Theme;
   onToggleInspector: () => void;
+  onToggleSidebar: () => void;
   onOpenCapture: (tab?: CaptureTab) => void;
 }) {
   const pathname = usePathname();
@@ -73,7 +75,16 @@ export function Titlebar({
   return (
     <>
       <div className="forge-titlebar">
-        <div className="forge-traffic">
+        <button
+          type="button"
+          className="forge-icon-btn forge-titlebar__menu"
+          onClick={onToggleSidebar}
+          aria-label="Open menu"
+        >
+          <Menu size={16} />
+        </button>
+
+        <div className="forge-traffic" data-desktop-only>
           <span /><span /><span />
         </div>
 
@@ -89,20 +100,25 @@ export function Titlebar({
         </div>
 
         <div className="forge-titlebar__right">
-          <ThemePicker initial={theme} />
+          <span data-desktop-only>
+            <ThemePicker initial={theme} />
+          </span>
 
           <button
             type="button"
             className="forge-cmdk"
             onClick={() => setCmdOpen(true)}
             title="Search or run command"
+            data-desktop-only
           >
             <Search size={13} />
             <span>Find or summon…</span>
             <kbd>⌘ K</kbd>
           </button>
 
-          <UnsyncedBadge />
+          <span data-desktop-only>
+            <UnsyncedBadge />
+          </span>
 
           <button
             type="button"
@@ -113,7 +129,12 @@ export function Titlebar({
             <Plus size={14} />
           </button>
 
-          <span className="forge-icon-btn" aria-disabled title="Notifications (placeholder)">
+          <span
+            className="forge-icon-btn"
+            aria-disabled
+            title="Notifications (placeholder)"
+            data-desktop-only
+          >
             <Bell size={14} />
           </span>
 
@@ -122,6 +143,7 @@ export function Titlebar({
             className="forge-icon-btn"
             onClick={onToggleInspector}
             title="Toggle inspector"
+            data-desktop-only
           >
             <PanelRight size={14} />
           </button>

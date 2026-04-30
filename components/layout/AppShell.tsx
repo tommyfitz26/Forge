@@ -19,9 +19,13 @@ export function AppShell({
   inspectorCtx: InspectorContext;
   children: ReactNode;
 }) {
-  // Inspector is open by default; persists across sessions via localStorage.
-  // Reads in an effect so SSR is stable.
+  // Inspector is open by default on desktop; persists across sessions via
+  // localStorage. On mobile the inspector hides entirely (CSS) regardless
+  // of this flag.
   const [inspectorOpen, setInspectorOpen] = useState(true);
+  // Sidebar starts closed on mobile; on desktop the CSS keeps it always
+  // visible regardless of this flag.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [captureOpen, setCaptureOpen] = useState(false);
   const [captureTab, setCaptureTab] = useState<CaptureTab | undefined>(undefined);
 
@@ -51,10 +55,24 @@ export function AppShell({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // Esc closes the mobile sidebar drawer.
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setSidebarOpen(false);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [sidebarOpen]);
+
   function toggleInspector() {
     setInspectorOpen((prev) => {
       const next = !prev;
-      try { localStorage.setItem(INSPECTOR_KEY, String(next)); } catch { /* private mode */ }
+      try {
+        localStorage.setItem(INSPECTOR_KEY, String(next));
+      } catch {
+        /* private mode */
+      }
       return next;
     });
   }
@@ -68,16 +86,48 @@ export function AppShell({
     setCaptureOpen(false);
   }, []);
 
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen((prev) => !prev);
+  }, []);
+
+  const closeSidebar = useCallback(() => {
+    setSidebarOpen(false);
+  }, []);
+
   return (
-    <div className="forge-shell" data-inspector={inspectorOpen ? 'open' : 'closed'}>
+    <div
+      className="forge-shell"
+      data-inspector={inspectorOpen ? 'open' : 'closed'}
+      data-sidebar={sidebarOpen ? 'open' : 'closed'}
+      onClickCapture={(e) => {
+        // On mobile, tapping any link inside the sidebar drawer closes it.
+        // We listen on capture so the link's own navigation still runs.
+        if (!sidebarOpen) return;
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
+        const link = target.closest('a');
+        if (link && link.closest('.forge-sidebar')) {
+          setSidebarOpen(false);
+        }
+      }}
+    >
       <Titlebar
         email={email}
         theme={theme}
         onToggleInspector={toggleInspector}
+        onToggleSidebar={toggleSidebar}
         onOpenCapture={openCapture}
       />
       {children}
       <InspectorRouter open={inspectorOpen} ctx={inspectorCtx} />
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="forge-shell__backdrop"
+          aria-label="Close menu"
+          onClick={closeSidebar}
+        />
+      )}
       <CaptureModal open={captureOpen} initialTab={captureTab} onClose={closeCapture} />
     </div>
   );
