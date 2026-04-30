@@ -1,8 +1,8 @@
 'use client';
 
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUpRight, BookmarkCheck, Trash2 } from 'lucide-react';
+import { ArrowUpRight, BookmarkCheck, Link2, Trash2 } from 'lucide-react';
 import {
   ContextMenuItem,
   ContextMenuPopover,
@@ -14,7 +14,9 @@ import {
 import { unpinItem } from '@/app/(app)/top-of-mind/actions';
 import { deleteJournalEntry } from '@/app/(app)/journal/actions';
 import { trashThread, trashProject } from '@/app/(app)/trash/actions';
+import { LinkPalette } from '@/components/links/LinkPalette';
 import type { PinSourceKind } from '@/lib/types/pins';
+import type { LinkSourceKind } from '@/lib/types/links';
 
 export type PinnedCardMenuTarget = {
   sourceKind: PinSourceKind;
@@ -27,10 +29,21 @@ const Ctx = createContext<UseContextMenuStateApi<PinnedCardMenuTarget> | null>(n
 export function PinnedCardContextMenuProvider({ children }: { children: ReactNode }) {
   const api = useContextMenuState<PinnedCardMenuTarget>();
   const router = useRouter();
+  const [linkSource, setLinkSource] = useState<{
+    kind: LinkSourceKind;
+    id: string;
+  } | null>(null);
 
   return (
     <Ctx.Provider value={api}>
       {children}
+      {linkSource && (
+        <LinkPalette
+          open
+          onClose={() => setLinkSource(null)}
+          source={linkSource}
+        />
+      )}
       <ContextMenuPopover state={api.state} onClose={api.close}>
         {api.state.open && (
           <>
@@ -56,6 +69,19 @@ export function PinnedCardContextMenuProvider({ children }: { children: ReactNod
               }}
             >
               <BookmarkCheck size={14} /> Unpin
+            </ContextMenuItem>
+
+            <ContextMenuItem
+              onSelect={() => {
+                if (!api.state.open) return;
+                setLinkSource({
+                  kind: api.state.target.sourceKind,
+                  id: api.state.target.sourceId,
+                });
+                api.close();
+              }}
+            >
+              <Link2 size={14} /> Link to…
             </ContextMenuItem>
 
             {/* Move to trash — kind-specific. Captures don't show this option;

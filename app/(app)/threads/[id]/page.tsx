@@ -5,6 +5,7 @@ import { ArrowLeft, ScrollText } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getThread } from '@/lib/db/threads';
 import { ThreadSectionEditor } from '@/components/threads/ThreadSectionEditor';
+import { ConnectionsPanel } from '@/components/links/ConnectionsPanel';
 import type { CaptureKind } from '@/lib/capture/kinds';
 
 type Params = Promise<{ id: string }>;
@@ -77,6 +78,8 @@ export default async function ThreadDetail({ params }: { params: Params }) {
           />
         ))}
       </div>
+
+      <ConnectionsPanel source={{ kind: 'thread', id: thread.id }} />
 
       {capture && (
         <div className="forge-thread__seed">

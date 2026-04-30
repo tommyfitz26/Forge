@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowUpRight,
@@ -8,6 +8,7 @@ import {
   ArchiveRestore,
   Bookmark,
   BookmarkCheck,
+  Link2,
   Trash2,
 } from 'lucide-react';
 import {
@@ -21,6 +22,7 @@ import {
 import { togglePin } from '@/app/(app)/top-of-mind/actions';
 import { archiveProject, restoreProject } from '@/app/(app)/workshop/actions';
 import { trashProject } from '@/app/(app)/trash/actions';
+import { LinkPalette } from '@/components/links/LinkPalette';
 import type { ProjectStatus } from '@/lib/types/projects';
 
 export type ProjectMenuTarget = {
@@ -34,10 +36,18 @@ const Ctx = createContext<UseContextMenuStateApi<ProjectMenuTarget> | null>(null
 export function ProjectContextMenuProvider({ children }: { children: ReactNode }) {
   const api = useContextMenuState<ProjectMenuTarget>();
   const router = useRouter();
+  const [linkSource, setLinkSource] = useState<{ id: string } | null>(null);
 
   return (
     <Ctx.Provider value={api}>
       {children}
+      {linkSource && (
+        <LinkPalette
+          open
+          onClose={() => setLinkSource(null)}
+          source={{ kind: 'project', id: linkSource.id }}
+        />
+      )}
       <ContextMenuPopover state={api.state} onClose={api.close}>
         {api.state.open && (
           <>
@@ -70,6 +80,16 @@ export function ProjectContextMenuProvider({ children }: { children: ReactNode }
                   <Bookmark size={14} /> Pin to Top of mind
                 </>
               )}
+            </ContextMenuItem>
+
+            <ContextMenuItem
+              onSelect={() => {
+                if (!api.state.open) return;
+                setLinkSource({ id: api.state.target.id });
+                api.close();
+              }}
+            >
+              <Link2 size={14} /> Link to…
             </ContextMenuItem>
 
             <ContextMenuSeparator />

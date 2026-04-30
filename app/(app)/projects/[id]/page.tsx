@@ -4,6 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ArrowLeft, ScrollText, Sprout } from 'lucide-react';
 import { captureForProject, getProject } from '@/lib/db/projects';
 import { gradientCssForKey, gradientKeyForKind, type CoverGradientKey } from '@/lib/types/projects';
+import { ConnectionsPanel } from '@/components/links/ConnectionsPanel';
 import type { CaptureKind } from '@/lib/capture/kinds';
 
 type Params = Promise<{ id: string }>;
@@ -208,6 +209,8 @@ export default async function ProjectDetail({
               Tasks land when intentions + per-project task lists arrive in 4.3.5.
             </p>
           </div>
+
+          <ConnectionsPanel source={{ kind: 'project', id: project.id }} />
         </div>
       )}
 
