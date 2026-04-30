@@ -169,7 +169,9 @@ html, body {
 @media (max-width: 860px) {
   .forge-shell {
     grid-template-columns: 1fr;
-    grid-template-rows: 44px 1fr;
+    /* First row is `auto` so the titlebar can grow by safe-area-inset-top
+       on devices with a notch / Dynamic Island. */
+    grid-template-rows: auto 1fr;
     grid-template-areas:
       "titlebar"
       "main";
@@ -183,7 +185,14 @@ html, body {
   /* Show the hamburger; hide every desktop-only element in the titlebar. */
   .forge-titlebar__menu { display: inline-flex; }
   .forge-titlebar [data-desktop-only] { display: none !important; }
-  .forge-titlebar { padding: 0 12px; gap: 10px; }
+  .forge-titlebar {
+    padding: 0 12px;
+    /* Push titlebar contents below the iOS Dynamic Island / status bar. */
+    padding-top: env(safe-area-inset-top, 0);
+    /* Reserve enough vertical room: 44px content + safe-area on top. */
+    min-height: calc(44px + env(safe-area-inset-top, 0));
+    gap: 10px;
+  }
   .forge-titlebar__right { gap: 8px; }
   .forge-crumbs { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
   .forge-brand-mini { font-size: 15px; }
@@ -191,7 +200,7 @@ html, body {
   /* Sidebar becomes a slide-in drawer on the left edge. */
   .forge-sidebar {
     position: fixed;
-    top: 44px;
+    top: calc(44px + env(safe-area-inset-top, 0));
     bottom: 0;
     left: 0;
     width: min(86vw, 320px);
@@ -201,6 +210,7 @@ html, body {
     transform: translateX(-100%);
     transition: transform 0.22s ease;
     box-shadow: 12px 0 32px rgba(0, 0, 0, 0.4);
+    padding-bottom: env(safe-area-inset-bottom, 0);
   }
   .forge-shell[data-sidebar="open"] .forge-sidebar { transform: translateX(0); }
   .forge-shell[data-sidebar="open"] .forge-shell__backdrop { display: block; }
@@ -210,8 +220,11 @@ html, body {
   .forge-inspector,
   .forge-statusbar { display: none !important; }
 
-  /* Main runs full-width with reduced padding. */
-  .forge-main { padding: 18px 16px 60px; }
+  /* Main runs full-width with reduced padding. Bottom padding includes the
+     iOS home-indicator safe area so content doesn't sit under it. */
+  .forge-main {
+    padding: 18px 16px calc(60px + env(safe-area-inset-bottom, 0));
+  }
 
   /* Page headers can wrap onto two lines on narrow screens. */
   .forge-page-header { flex-wrap: wrap; gap: 8px 12px; }
