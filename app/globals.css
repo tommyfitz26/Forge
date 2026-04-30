@@ -187,12 +187,10 @@ html, body {
   .forge-titlebar [data-desktop-only] { display: none !important; }
   .forge-titlebar {
     padding: 0 12px;
-    /* Push titlebar contents below the iOS Dynamic Island / status bar.
-       Add 12px on top of the safe-area inset so the icons sit cleanly
-       below the status bar instead of right against it. */
-    padding-top: calc(env(safe-area-inset-top, 0) + 12px);
-    padding-bottom: 4px;
-    min-height: calc(44px + env(safe-area-inset-top, 0) + 12px);
+    /* Push titlebar contents well below the iOS Dynamic Island / status bar. */
+    padding-top: calc(env(safe-area-inset-top, 0) + 24px);
+    padding-bottom: 0;
+    min-height: calc(44px + env(safe-area-inset-top, 0) + 24px);
     gap: 10px;
   }
   .forge-titlebar__right { gap: 8px; }
@@ -202,23 +200,28 @@ html, body {
   /* Sidebar becomes a slide-in drawer on the left edge. The desktop sidebar
      uses --pane-tint (translucent) which works because there's a solid grid
      cell underneath; on a fixed-position drawer we need a fully opaque bg
-     so the main content doesn't show through. */
+     so the main content doesn't show through. We force the background with
+     !important + an explicit hex fallback because the desktop rule has equal
+     specificity and we want this override to win unconditionally. */
   .forge-sidebar {
     position: fixed;
-    top: calc(44px + env(safe-area-inset-top, 0) + 12px);
+    top: calc(44px + env(safe-area-inset-top, 0) + 24px);
     bottom: 0;
     left: 0;
     width: min(86vw, 320px);
     z-index: 60;
     border-right: 1px solid var(--line);
-    background: var(--bg-1);
-    /* Defensive: some iOS Safari builds composite fixed elements with
-       reduced opacity; force full opacity at the layer level. */
+    background-color: #15171c !important;
+    background-image: none !important;
     opacity: 1;
     transform: translateX(-100%);
     transition: transform 0.22s ease;
     box-shadow: 12px 0 32px rgba(0, 0, 0, 0.5);
     padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  /* In light mode, swap the explicit hex. */
+  :root[data-theme="light"] .forge-sidebar {
+    background-color: #ffffff !important;
   }
   .forge-shell[data-sidebar="open"] .forge-sidebar { transform: translateX(0); }
   .forge-shell[data-sidebar="open"] .forge-shell__backdrop { display: block; }
