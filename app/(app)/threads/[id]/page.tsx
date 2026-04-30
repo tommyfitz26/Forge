@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getThread } from '@/lib/db/threads';
 import { ThreadSectionEditor } from '@/components/threads/ThreadSectionEditor';
 import { ConnectionsPanel } from '@/components/links/ConnectionsPanel';
+import { SuggestionsPanel } from '@/components/links/SuggestionsPanel';
+import { PostSaveAutoRefresh } from '@/components/links/PostSaveAutoRefresh';
 import type { CaptureKind } from '@/lib/capture/kinds';
 
 type Params = Promise<{ id: string }>;
@@ -43,6 +45,7 @@ export default async function ThreadDetail({ params }: { params: Params }) {
 
   return (
     <div className="forge-thread">
+      <PostSaveAutoRefresh />
       <Link href="/threads" className="forge-thread__back">
         <ArrowLeft size={12} />
         Threads
@@ -78,6 +81,8 @@ export default async function ThreadDetail({ params }: { params: Params }) {
           />
         ))}
       </div>
+
+      <SuggestionsPanel source={{ kind: 'thread', id: thread.id }} />
 
       <ConnectionsPanel source={{ kind: 'thread', id: thread.id }} />
 

@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, after, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import {
@@ -9,6 +9,7 @@ import {
 } from '@/lib/http/read-body';
 import { transcribeAudio } from '@/lib/ai/transcribe';
 import { persistCapture, type CaptureSource } from '@/lib/capture/persist';
+import { scheduleLinkSuggestions } from '@/lib/ai/run-suggest-links';
 import { verifyBearer } from '@/lib/auth/shortcut';
 import { env } from '@/lib/env';
 import { logger } from '@/lib/logger';
@@ -219,6 +220,8 @@ export async function POST(req: NextRequest) {
       audioDurationSeconds: duration,
       originalTranscript: transcript.text,
     });
+    // Phase 5.3 — schedule AI link suggestions after the response is sent.
+    after(() => scheduleLinkSuggestions(userId, 'capture', result.id));
     return NextResponse.json({ id: result.id }, { status: 201 });
   } catch (err) {
     logger.error('capture.persist.api_failed', {

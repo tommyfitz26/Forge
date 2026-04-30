@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { persistCapture } from '@/lib/capture/persist';
 import {
@@ -11,6 +12,7 @@ import {
   isAcceptedPhotoMime,
   photoMimeToExtension,
 } from '@/lib/capture/photo';
+import { scheduleLinkSuggestions } from '@/lib/ai/run-suggest-links';
 import { logger } from '@/lib/logger';
 
 const CreateTextSchema = z.object({
@@ -42,6 +44,11 @@ export async function createTextCapture(formData: FormData): Promise<CreateResul
   } catch {
     return { ok: false, error: 'Could not save capture.' };
   }
+
+  // Phase 5.3 — schedule AI link suggestions to run after the response is
+  // sent. Fire-and-forget; suggestions will appear on the capture detail
+  // page once Sonnet returns and the page is revalidated.
+  after(() => scheduleLinkSuggestions(user.id, 'capture', id));
 
   revalidatePath('/');
   redirect(`/capture/${id}`);
@@ -88,6 +95,8 @@ export async function createWebClipCapture(formData: FormData): Promise<CreateRe
   } catch {
     return { ok: false, error: 'Could not save clip.' };
   }
+
+  after(() => scheduleLinkSuggestions(user.id, 'capture', id));
 
   revalidatePath('/');
   redirect(`/capture/${id}`);
@@ -195,6 +204,13 @@ export async function createPhotoCapture(formData: FormData): Promise<CreateResu
       captureId,
     });
     return { ok: false, error: 'Could not save attachment metadata.' };
+  }
+
+  // Photo capture with caption already routed through persistCapture above;
+  // no-caption path skipped classify_capture, so suggesting on an empty
+  // body would be wasteful. Only schedule when there's something to suggest from.
+  if (caption.length > 0) {
+    after(() => scheduleLinkSuggestions(user.id, 'capture', captureId));
   }
 
   revalidatePath('/');

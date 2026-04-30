@@ -10,6 +10,8 @@ import { ResearchPanel } from './ResearchPanel';
 import { DevelopPanel } from './DevelopPanel';
 import { NudgeBanner } from './NudgeBanner';
 import { ConnectionsPanel } from '@/components/links/ConnectionsPanel';
+import { SuggestionsPanel } from '@/components/links/SuggestionsPanel';
+import { PostSaveAutoRefresh } from '@/components/links/PostSaveAutoRefresh';
 import { buildDevelopPrompt } from '@/lib/develop/prompt';
 import { ResearchSchema } from '@/lib/ai/research-schema';
 import { logger } from '@/lib/logger';
@@ -126,6 +128,7 @@ export default async function CaptureDetail({
 
   return (
     <div className="forge-detail">
+      <PostSaveAutoRefresh />
       <Link href="/stream" className="forge-detail__back">
         <ArrowLeft size={12} />
         Stream
@@ -214,6 +217,8 @@ export default async function CaptureDetail({
           research: research ? (ResearchSchema.safeParse(research).data ?? null) : null,
         })}
       />
+
+      <SuggestionsPanel source={{ kind: 'capture', id: capture.id }} />
 
       <ConnectionsPanel source={{ kind: 'capture', id: capture.id }} />
 
