@@ -28,6 +28,7 @@ import {
   type CoverGradientKey,
 } from '@/lib/types/projects';
 import type { TagSummary } from '@/lib/types/tags';
+import type { StreakSummary } from '@/lib/types/intentions';
 import type { CaptureKind } from '@/lib/capture/kinds';
 
 type Bucket = {
@@ -89,11 +90,24 @@ export type SidebarProject = {
 export function Sidebar({
   projects = [],
   tags = [],
+  streak,
 }: {
   projects?: SidebarProject[];
   tags?: TagSummary[];
+  streak?: StreakSummary;
 }) {
   const pathname = usePathname();
+  const streakDays = streak?.current ?? 0;
+  // Build a 28-cell grid (4 rows × 7 cols) representing the trailing 28
+  // days, oldest-left → newest-right. Lit cells are days the user counted.
+  const lit = new Set(streak?.recentActiveDays ?? []);
+  const grid: boolean[] = [];
+  const cursor = new Date();
+  cursor.setDate(cursor.getDate() - 27);
+  for (let i = 0; i < 28; i++) {
+    grid.push(lit.has(cursor.toISOString().slice(0, 10)));
+    cursor.setDate(cursor.getDate() + 1);
+  }
 
   return (
     <aside className="forge-sidebar">
@@ -263,11 +277,13 @@ export function Sidebar({
         <div className="forge-nav-label">Practice</div>
         <div className="forge-practice">
           <div className="forge-practice__lbl">Day streak</div>
-          <div className="forge-practice__num">0</div>
-          <div className="forge-practice__sub">days in a row</div>
-          <div className="forge-practice__grid">
-            {Array.from({ length: 28 }).map((_, i) => (
-              <div key={i} />
+          <div className="forge-practice__num">{streakDays}</div>
+          <div className="forge-practice__sub">
+            {streakDays === 1 ? 'day in a row' : 'days in a row'}
+          </div>
+          <div className="forge-practice__grid" aria-label="Last 28 days">
+            {grid.map((on, i) => (
+              <div key={i} data-on={on ? 'true' : 'false'} />
             ))}
           </div>
         </div>

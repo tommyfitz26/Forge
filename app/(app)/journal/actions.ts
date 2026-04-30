@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
+import { snapshotContentVersion } from '@/lib/db/content-versions';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function untypedSupabase(): Promise<any> {
@@ -112,6 +113,14 @@ export async function createJournalEntry(formData: FormData): Promise<EntryResul
     written_at: writtenAt,
   });
 
+  // Phase 4.3.5 — best-effort version snapshot of the entry body at create.
+  await snapshotContentVersion({
+    ownerId: user.id,
+    sourceKind: 'journal_entry',
+    sourceId: data.id,
+    body: parsed.data.body,
+  });
+
   revalidatePath('/journal');
   for (const t of tags) revalidatePath(`/tags/${t}`);
   return { ok: true, id: data.id };
@@ -157,6 +166,14 @@ export async function updateJournalEntry(
     logger.error('journal.update.failed', { id: parsed.data.id, err: error.message });
     return { ok: false, error: 'Could not save changes.' };
   }
+
+  // Phase 4.3.5 — best-effort version snapshot of the updated body.
+  await snapshotContentVersion({
+    ownerId: user.id,
+    sourceKind: 'journal_entry',
+    sourceId: parsed.data.id,
+    body: parsed.data.body,
+  });
 
   revalidatePath('/journal');
   for (const t of tags) revalidatePath(`/tags/${t}`);

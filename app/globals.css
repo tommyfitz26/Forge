@@ -357,6 +357,10 @@ html, body {
   aspect-ratio: 1; border-radius: 1px;
   background: var(--ink-4);
 }
+.forge-practice__grid > div[data-on="true"] {
+  background: var(--ember);
+  box-shadow: 0 0 4px var(--ember-soft);
+}
 
 /* ============================================================
    MAIN
@@ -1499,4 +1503,105 @@ html, body {
   font-size: 10px;
   color: var(--ink-3);
   display: flex; justify-content: space-between; align-items: center;
+}
+
+/* ============================================================
+   TODAY — focus card editor + recent lists
+   ============================================================ */
+.forge-focus-input {
+  border: none;
+  border-bottom: 1px solid transparent;
+  padding: 2px 0;
+  line-height: 1.4;
+}
+.forge-focus-input:focus {
+  border-bottom-color: var(--ember);
+}
+.forge-focus-input::placeholder {
+  color: var(--ink-3);
+  font-style: italic;
+}
+
+.forge-bench-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.forge-today-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-2);
+  overflow: hidden;
+}
+.forge-today-list__row + .forge-today-list__row {
+  border-top: 1px solid var(--line);
+}
+.forge-today-list__link {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  color: inherit;
+  text-decoration: none;
+  transition: background 80ms ease;
+}
+.forge-today-list__link:hover {
+  background: var(--bg-1);
+}
+.forge-today-list__kind {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ember);
+}
+.forge-today-list__title {
+  font-family: var(--serif);
+  font-size: 15px;
+  color: var(--ink-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.forge-today-list__time {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+
+.forge-today-pages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.forge-today-pages__row {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-2);
+  padding: 14px 18px;
+}
+.forge-today-pages__date {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-3);
+  margin-bottom: 6px;
+}
+.forge-today-pages__body {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--ink-1);
+  margin: 0;
 }

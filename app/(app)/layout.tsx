@@ -11,6 +11,8 @@ import { threadCounts } from '@/lib/db/threads';
 import { topTags } from '@/lib/db/tags';
 import { journalCounts } from '@/lib/db/journal';
 import { pinCounts } from '@/lib/db/pins';
+import { computeStreakSummary } from '@/lib/db/streak';
+import { getTodaysIntention } from '@/lib/db/intentions';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -25,14 +27,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Limited to 8 to keep the rail tidy; "All projects" link expands.
   // Phase 4.3.3: Threads counts feed the inspector.
   // Phase 4.3.4: Sidebar tags + journal/pin counts.
-  const [activeProjects, counts, threads, tags, journal, pins] = await Promise.all([
-    listProjects({ status: 'active', limit: 8 }),
-    projectCounts(),
-    threadCounts(),
-    topTags(8),
-    journalCounts(),
-    pinCounts(),
-  ]);
+  // Phase 4.3.5: Streak summary + today's intention feed the practice card
+  // and Today inspector.
+  const [activeProjects, counts, threads, tags, journal, pins, streak, todaysIntention] =
+    await Promise.all([
+      listProjects({ status: 'active', limit: 8 }),
+      projectCounts(),
+      threadCounts(),
+      topTags(8),
+      journalCounts(),
+      pinCounts(),
+      computeStreakSummary(),
+      getTodaysIntention(),
+    ]);
   const projectsForSidebar: SidebarProject[] = activeProjects.map((p) => ({
     id: p.id,
     title: p.title,
@@ -67,9 +74,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           total: pins.total,
           byKind: pins.byKind,
         },
+        today: {
+          focusSet: Boolean(todaysIntention),
+          dayStreak: streak.current,
+          bestStreak: streak.best,
+        },
       }}
     >
-      <Sidebar projects={projectsForSidebar} tags={tags} />
+      <Sidebar projects={projectsForSidebar} tags={tags} streak={streak} />
       <main className="forge-main">
         <Suspense fallback={null}>
           <EnableNudges vapidPublicKey={vapidPublicKey} />

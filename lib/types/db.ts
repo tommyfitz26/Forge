@@ -207,6 +207,41 @@ export type Database = {
           },
         ]
       }
+      content_versions: {
+        Row: {
+          body_snapshot: string
+          id: string
+          owner_id: string
+          saved_at: string
+          source_id: string
+          source_kind: string
+        }
+        Insert: {
+          body_snapshot: string
+          id?: string
+          owner_id: string
+          saved_at?: string
+          source_id: string
+          source_kind: string
+        }
+        Update: {
+          body_snapshot?: string
+          id?: string
+          owner_id?: string
+          saved_at?: string
+          source_id?: string
+          source_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_versions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           capture_id: string
@@ -238,6 +273,41 @@ export type Database = {
             columns: ["capture_id"]
             isOneToOne: false
             referencedRelation: "captures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      intentions: {
+        Row: {
+          body: string
+          created_at: string
+          day: string
+          id: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          day?: string
+          id?: string
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          day?: string
+          id?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intentions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -611,6 +681,32 @@ export type Database = {
             columns: ["capture_id"]
             isOneToOne: false
             referencedRelation: "captures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      streak_days: {
+        Row: {
+          day: string
+          owner_id: string
+          sources: string[]
+        }
+        Insert: {
+          day: string
+          owner_id: string
+          sources?: string[]
+        }
+        Update: {
+          day?: string
+          owner_id?: string
+          sources?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "streak_days_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]

@@ -31,6 +31,11 @@ export type InspectorContext = {
     total: number;
     byKind: { capture: number; project: number; thread: number; journal_entry: number };
   };
+  today: {
+    focusSet: boolean;
+    dayStreak: number;
+    bestStreak: number;
+  };
 };
 
 /**
@@ -49,13 +54,17 @@ function panelFor(pathname: string, ctx: InspectorContext) {
         <InspSection>
           <InspHeading title="Today" sub={"What's on the bench"} />
           <InspLabel>At a glance</InspLabel>
-          <InspStat k="Captures today" v="—" />
-          <InspStat k="Focus set" v="—" />
-          <InspStat k="Day streak" v="0" />
+          <InspStat k="Focus set" v={ctx.today.focusSet ? 'yes' : 'not yet'} />
+          <InspStat k="Day streak" v={String(ctx.today.dayStreak)} />
+          <InspStat k="Best (90d)" v={String(ctx.today.bestStreak)} />
         </InspSection>
         <InspSection>
-          <InspLabel>Tonight&apos;s bench</InspLabel>
-          <InspEmpty>Pinned items appear here once you mark them top-of-mind.</InspEmpty>
+          <InspLabel>Top of mind</InspLabel>
+          {ctx.pins.total === 0 ? (
+            <InspEmpty>Pin items from anywhere to keep them in view here.</InspEmpty>
+          ) : (
+            <InspStat k="Total pinned" v={String(ctx.pins.total)} />
+          )}
         </InspSection>
       </>
     );

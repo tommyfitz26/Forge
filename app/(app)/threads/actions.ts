@@ -7,6 +7,10 @@ import { createClient } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 import { CAPTURE_KINDS, type CaptureKind } from '@/lib/capture/kinds';
 import { sectionsForKind, isValidSectionKey } from '@/lib/threads/templates';
+import {
+  snapshotContentVersion,
+  serializeThreadSections,
+} from '@/lib/db/content-versions';
 
 /**
  * Untyped escape hatch — see lib/db/threads.ts. Drop after `pnpm db:types`.
@@ -175,6 +179,14 @@ export async function updateThreadSection(
     });
     return { ok: false, error: 'Could not save section.' };
   }
+
+  // Phase 4.3.5 — best-effort version snapshot of the full thread.
+  await snapshotContentVersion({
+    ownerId: user.id,
+    sourceKind: 'thread',
+    sourceId: thread.id,
+    body: serializeThreadSections(next),
+  });
 
   revalidatePath(`/threads/${thread.id}`);
   return { ok: true };
