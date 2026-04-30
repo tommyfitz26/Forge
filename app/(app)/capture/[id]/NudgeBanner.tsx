@@ -2,8 +2,6 @@
 
 import { useState, useTransition } from 'react';
 import { Bell, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { skipNudge } from './actions';
 
 type Props = {
@@ -25,17 +23,16 @@ export function NudgeBanner({ nudgeId, question, alreadyResponded }: Props) {
   if (hidden) return null;
 
   return (
-    <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-4">
-      <div className="flex items-start gap-3">
-        <Bell className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
-        <div className="flex-1 space-y-1">
-          <div className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
-            Today&apos;s nudge
-          </div>
-          <p className="text-sm text-neutral-800 dark:text-neutral-200">{question}</p>
+    <div className="forge-nudge-banner">
+      <div className="forge-nudge-banner__row">
+        <Bell size={14} className="forge-nudge-banner__icon" />
+        <div className="forge-nudge-banner__main">
+          <div className="forge-nudge-banner__label">Today&apos;s nudge</div>
+          <p className="forge-nudge-banner__q">{question}</p>
           {alreadyResponded && (
-            <p className="text-xs text-neutral-500">
-              You&apos;ve already opened this nudge. The next one will pick a different capture.
+            <p className="forge-nudge-banner__hint">
+              You&apos;ve already opened this nudge. The next one will pick a
+              different capture.
             </p>
           )}
         </div>
@@ -43,20 +40,22 @@ export function NudgeBanner({ nudgeId, question, alreadyResponded }: Props) {
           type="button"
           onClick={() => setHidden(true)}
           aria-label="Dismiss nudge banner"
-          className="rounded p-1 text-neutral-500 hover:bg-amber-500/10 hover:text-neutral-700 dark:hover:text-neutral-300"
+          className="forge-nudge-banner__close"
         >
-          <X className="h-3.5 w-3.5" />
+          <X size={13} />
         </button>
       </div>
 
       {!showSkip ? (
-        <div className="ml-7 flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-neutral-500">
-            Use &ldquo;Develop this&rdquo; below to pressure-test in Claude, or
-          </span>
-          <Button size="sm" variant="ghost" onClick={() => setShowSkip(true)}>
+        <div className="forge-nudge-banner__cta">
+          <span>Use &ldquo;Develop this&rdquo; below to pressure-test in Claude, or</span>
+          <button
+            type="button"
+            className="forge-btn forge-btn--ghost"
+            onClick={() => setShowSkip(true)}
+          >
             Skip with reason
-          </Button>
+          </button>
         </div>
       ) : (
         <form
@@ -68,25 +67,29 @@ export function NudgeBanner({ nudgeId, question, alreadyResponded }: Props) {
               setHidden(true);
             });
           }}
-          className="ml-7 space-y-2"
+          className="forge-nudge-banner__skip"
         >
-          <Textarea
+          <textarea
             name="reason"
             rows={2}
             placeholder="Optional — why is this nudge not useful right now?"
+            className="forge-nudge-banner__textarea"
           />
-          <div className="flex items-center gap-2">
-            <Button type="submit" size="sm" disabled={isPending}>
+          <div className="forge-nudge-banner__skip-row">
+            <button
+              type="submit"
+              className="forge-btn forge-btn--primary"
+              disabled={isPending}
+            >
               {isPending ? 'Skipping…' : 'Confirm skip'}
-            </Button>
-            <Button
+            </button>
+            <button
               type="button"
-              size="sm"
-              variant="ghost"
+              className="forge-btn forge-btn--ghost"
               onClick={() => setShowSkip(false)}
             >
               Cancel
-            </Button>
+            </button>
           </div>
         </form>
       )}

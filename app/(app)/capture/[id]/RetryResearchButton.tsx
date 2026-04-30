@@ -1,7 +1,6 @@
 'use client';
 
 import { useTransition } from 'react';
-import { Button } from '@/components/ui/button';
 import { retryResearch } from './actions';
 
 export function RetryResearchButton({
@@ -14,10 +13,9 @@ export function RetryResearchButton({
   const [pending, startTransition] = useTransition();
 
   return (
-    <Button
+    <button
       type="button"
-      variant="outline"
-      size="sm"
+      className="forge-btn"
       disabled={pending}
       onClick={() => {
         startTransition(async () => {
@@ -26,6 +24,6 @@ export function RetryResearchButton({
       }}
     >
       {pending ? 'Queuing…' : label}
-    </Button>
+    </button>
   );
 }

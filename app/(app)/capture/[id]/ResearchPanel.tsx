@@ -40,12 +40,10 @@ export function ResearchPanel({
   const showRetry = status === 'failed' || status === 'skipped';
 
   return (
-    <section className="space-y-4 rounded-md border border-neutral-200 p-4 dark:border-neutral-800">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">
-            Research
-          </h2>
+    <section className="forge-research">
+      <header className="forge-research__head">
+        <div className="forge-research__title">
+          <h2>Research</h2>
           <ResearchStatusBadge status={status} />
         </div>
         {showRetry && (
@@ -54,27 +52,27 @@ export function ResearchPanel({
             label={status === 'skipped' ? 'Run research' : 'Retry research'}
           />
         )}
-      </div>
+      </header>
 
       {status === 'pending' && (
-        <p className="text-sm text-neutral-500">
+        <p className="forge-research__hint">
           Queued. The research job runs in the background — refresh in a minute.
         </p>
       )}
       {status === 'running' && (
-        <p className="text-sm text-neutral-500">
+        <p className="forge-research__hint">
           Sonnet is searching the web — usually under 30 seconds. Refresh soon.
         </p>
       )}
       {status === 'failed' && !parsed?.success && (
-        <p className="text-sm text-neutral-500">
+        <p className="forge-research__hint">
           The last attempt didn&rsquo;t produce a valid result. Try again?
         </p>
       )}
       {status === 'skipped' && (
-        <p className="text-sm text-neutral-500">
-          Auto-research only runs on idea/research captures. Trigger it manually if
-          you want a competitive scan for this one.
+        <p className="forge-research__hint">
+          Auto-research only runs on idea / research captures. Trigger it manually
+          if you want a competitive scan for this one.
         </p>
       )}
 
@@ -91,41 +89,37 @@ function ResearchBody({
   data: import('zod').infer<typeof ResearchSchema>;
 }) {
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500">
+    <div className="forge-research__body">
+      <div className="forge-research__meta">
         <span>
-          confidence: <span className="font-medium">{data.confidence}</span>
+          confidence:{' '}
+          <strong className="forge-research__meta-strong">{data.confidence}</strong>
         </span>
-        <span>·</span>
+        <span className="forge-research__dot" />
         <span>{data.sources_count} sources</span>
-        <span>·</span>
+        <span className="forge-research__dot" />
         <span>{new Date(data.generated_at).toLocaleString()}</span>
       </div>
 
       {data.market_context && (
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-            Market context
-          </h3>
-          <p className="mt-1 text-sm leading-relaxed">{data.market_context}</p>
+        <div className="forge-research__section">
+          <h3 className="forge-research__section-title">Market context</h3>
+          <p className="forge-research__prose">{data.market_context}</p>
         </div>
       )}
 
       {data.competitors.length > 0 && (
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-            Competitors
-          </h3>
-          <ul className="mt-1 space-y-1 text-sm">
+        <div className="forge-research__section">
+          <h3 className="forge-research__section-title">Competitors</h3>
+          <ul className="forge-research__list">
             {data.competitors.map((c, i) => (
               <li key={`${c.name}-${i}`}>
-                <span className="font-medium">
+                <span className="forge-research__list-name">
                   {c.url ? (
                     <a
                       href={c.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="hover:underline"
                     >
                       {c.name}
                     </a>
@@ -133,7 +127,7 @@ function ResearchBody({
                     c.name
                   )}
                 </span>
-                <span className="text-neutral-500"> — {c.oneLiner}</span>
+                <span className="forge-research__list-deck"> — {c.oneLiner}</span>
               </li>
             ))}
           </ul>
@@ -141,17 +135,13 @@ function ResearchBody({
       )}
 
       {data.angles.length > 0 && (
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-            Angles
-          </h3>
-          <ul className="mt-1 space-y-2 text-sm">
+        <div className="forge-research__section">
+          <h3 className="forge-research__section-title">Angles</h3>
+          <ul className="forge-research__angles">
             {data.angles.map((a, i) => (
               <li key={`${a.title}-${i}`}>
-                <div className="font-medium">{a.title}</div>
-                <div className="text-neutral-600 dark:text-neutral-400">
-                  {a.reasoning}
-                </div>
+                <div className="forge-research__angle-title">{a.title}</div>
+                <div className="forge-research__angle-reason">{a.reasoning}</div>
               </li>
             ))}
           </ul>
@@ -159,27 +149,23 @@ function ResearchBody({
       )}
 
       {data.recent_news.length > 0 && (
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-            Recent news
-          </h3>
-          <ul className="mt-1 space-y-1 text-sm">
+        <div className="forge-research__section">
+          <h3 className="forge-research__section-title">Recent news</h3>
+          <ul className="forge-research__news">
             {data.recent_news.map((n, i) => (
               <li key={`${n.url}-${i}`}>
                 <a
                   href={n.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-medium hover:underline"
+                  className="forge-research__news-title"
                 >
                   {n.title}
                 </a>
                 {n.date && (
-                  <span className="ml-1 text-xs text-neutral-500">({n.date})</span>
+                  <span className="forge-research__news-date">({n.date})</span>
                 )}
-                <div className="text-neutral-600 dark:text-neutral-400">
-                  {n.summary}
-                </div>
+                <div className="forge-research__news-summary">{n.summary}</div>
               </li>
             ))}
           </ul>

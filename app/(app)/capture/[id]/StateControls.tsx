@@ -3,8 +3,6 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { ArrowUpRight, AlignLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import type { CaptureKind, CaptureState } from '@/lib/capture/kinds';
 import { PromoteToProjectModal } from '@/components/projects/PromoteToProjectModal';
 import { createThread } from '@/app/(app)/threads/actions';
@@ -42,39 +40,43 @@ export function StateControls({
 
   if (state === 'archived') {
     return (
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="outline"
+      <div className="forge-state-row">
+        <button
+          type="button"
+          className="forge-btn"
           disabled={isPending}
           onClick={() => startTransition(() => unarchiveCapture(id))}
         >
           Restore
-        </Button>
+        </button>
 
         {!showDelete ? (
-          <Button
-            variant="destructive"
+          <button
+            type="button"
+            className="forge-btn forge-btn--danger"
             disabled={isPending}
             onClick={() => setShowDelete(true)}
           >
             Delete forever
-          </Button>
+          </button>
         ) : (
-          <div className="flex items-center gap-2 rounded-md border border-red-500/40 bg-red-500/5 p-2 text-xs">
-            <span className="text-red-700 dark:text-red-400">
-              This cannot be undone.
-            </span>
-            <Button
-              size="sm"
-              variant="destructive"
+          <div className="forge-confirm forge-confirm--danger">
+            <span>This cannot be undone.</span>
+            <button
+              type="button"
+              className="forge-btn forge-btn--danger"
               disabled={isPending}
               onClick={() => startTransition(() => deleteCaptureForever(id))}
             >
               Yes, delete
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setShowDelete(false)}>
+            </button>
+            <button
+              type="button"
+              className="forge-btn forge-btn--ghost"
+              onClick={() => setShowDelete(false)}
+            >
               Cancel
-            </Button>
+            </button>
           </div>
         )}
       </div>
@@ -82,8 +84,8 @@ export function StateControls({
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="forge-state-controls">
+      <div className="forge-state-row">
         {isProject && projectId ? (
           <Link
             href={`/projects/${projectId}`}
@@ -93,14 +95,15 @@ export function StateControls({
             <ArrowUpRight size={14} /> Open project
           </Link>
         ) : (
-          <Button
-            variant="outline"
+          <button
+            type="button"
+            className="forge-btn"
             disabled={isPending}
             onClick={() => setPromoteOpen(true)}
           >
-            <ArrowUpRight className="h-4 w-4" />
+            <ArrowUpRight size={14} />
             Make this a project
-          </Button>
+          </button>
         )}
         {threadId ? (
           <Link
@@ -119,19 +122,20 @@ export function StateControls({
               });
             }}
           >
-            <Button type="submit" variant="outline" disabled={isPending}>
-              <AlignLeft className="h-4 w-4" />
+            <button type="submit" className="forge-btn" disabled={isPending}>
+              <AlignLeft size={14} />
               Start thread
-            </Button>
+            </button>
           </form>
         )}
-        <Button
-          variant="outline"
+        <button
+          type="button"
+          className="forge-btn"
           disabled={isPending}
           onClick={() => setShowArchive((s) => !s)}
         >
           Archive
-        </Button>
+        </button>
       </div>
 
       <PromoteToProjectModal
@@ -149,28 +153,32 @@ export function StateControls({
               setShowArchive(false);
             });
           }}
-          className="space-y-2 rounded-md border border-neutral-200 p-3 dark:border-neutral-800"
+          className="forge-archive-form"
         >
-          <label className="block text-xs font-medium">
+          <label className="forge-archive-form__label">
             Why are you archiving? (optional)
           </label>
-          <Textarea
+          <textarea
             name="reason"
             rows={2}
             placeholder="Not pursuing further, duplicate of X, lost interest, …"
+            className="forge-archive-form__textarea"
           />
-          <div className="flex items-center gap-2">
-            <Button type="submit" size="sm" disabled={isPending}>
+          <div className="forge-state-row">
+            <button
+              type="submit"
+              className="forge-btn forge-btn--primary"
+              disabled={isPending}
+            >
               {isPending ? 'Archiving…' : 'Confirm archive'}
-            </Button>
-            <Button
+            </button>
+            <button
               type="button"
-              size="sm"
-              variant="ghost"
+              className="forge-btn forge-btn--ghost"
               onClick={() => setShowArchive(false)}
             >
               Cancel
-            </Button>
+            </button>
           </div>
         </form>
       )}
