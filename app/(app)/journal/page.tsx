@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { JournalComposer } from '@/components/journal/JournalComposer';
+import { DeleteEntryButton } from '@/components/journal/DeleteEntryButton';
 import { PinButton } from '@/components/projects/PinButton';
 import { listJournalEntries } from '@/lib/db/journal';
 import { pinnedSetForOwner } from '@/lib/db/pins';
@@ -51,6 +52,7 @@ export default async function JournalPage() {
                           sourceId={e.id}
                           initiallyPinned={isPinned}
                         />
+                        <DeleteEntryButton id={e.id} />
                       </span>
                     </div>
                     <div className="forge-journal-entry__body">{e.body}</div>

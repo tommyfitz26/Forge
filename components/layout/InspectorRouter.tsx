@@ -42,6 +42,14 @@ export type InspectorContext = {
     journalDays: number;
     byKind: { idea: number; problem: number; observation: number; research: number };
   };
+  scraps: {
+    total: number;
+  };
+  trash: {
+    total: number;
+    byKind: { journal_entry: number; thread: number; project: number };
+    oldestDays: number;
+  };
 };
 
 /**
@@ -201,7 +209,12 @@ function panelFor(pathname: string, ctx: InspectorContext) {
     return (
       <InspSection>
         <InspHeading title="Scraps" sub="Drafts, fragments, seeds" />
-        <InspEmpty>Captures still in `raw` state and not yet anchored to a project show here.</InspEmpty>
+        <InspStat k="Total" v={String(ctx.scraps.total)} />
+        {ctx.scraps.total === 0 ? (
+          <InspEmpty>
+            Raw captures that haven&apos;t been promoted or filed show here.
+          </InspEmpty>
+        ) : null}
       </InspSection>
     );
   }
@@ -216,12 +229,32 @@ function panelFor(pathname: string, ctx: InspectorContext) {
   }
 
   if (pathname === '/trash') {
+    const t = ctx.trash;
     return (
-      <InspSection>
-        <InspHeading title="Trash" sub="Auto-deletes after 30 days" />
-        <InspStat k="Items" v="—" />
-        <InspStat k="Oldest" v="—" />
-      </InspSection>
+      <>
+        <InspSection>
+          <InspHeading title="Trash" sub="Auto-deletes after 30 days" />
+          <InspStat k="Items" v={String(t.total)} />
+          <InspStat
+            k="Oldest"
+            v={
+              t.total === 0
+                ? '—'
+                : t.oldestDays === 1
+                  ? '1 day'
+                  : `${t.oldestDays} days`
+            }
+          />
+        </InspSection>
+        {t.total > 0 && (
+          <InspSection>
+            <InspLabel>By kind</InspLabel>
+            <InspStat k="Journal" v={String(t.byKind.journal_entry)} />
+            <InspStat k="Threads" v={String(t.byKind.thread)} />
+            <InspStat k="Projects" v={String(t.byKind.project)} />
+          </InspSection>
+        )}
+      </>
     );
   }
 

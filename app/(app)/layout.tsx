@@ -14,6 +14,8 @@ import { pinCounts } from '@/lib/db/pins';
 import { computeStreakSummary } from '@/lib/db/streak';
 import { getTodaysIntention } from '@/lib/db/intentions';
 import { thisWeekAggregates } from '@/lib/db/this-week';
+import { scrapsCount } from '@/lib/db/scraps';
+import { trashCount } from '@/lib/db/trash';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -30,18 +32,31 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Phase 4.3.4: Sidebar tags + journal/pin counts.
   // Phase 4.3.5: Streak summary + today's intention feed the practice card
   // and Today inspector.
-  const [activeProjects, counts, threads, tags, journal, pins, streak, todaysIntention, weekAgg] =
-    await Promise.all([
-      listProjects({ status: 'active', limit: 8 }),
-      projectCounts(),
-      threadCounts(),
-      topTags(8),
-      journalCounts(),
-      pinCounts(),
-      computeStreakSummary(),
-      getTodaysIntention(),
-      thisWeekAggregates(),
-    ]);
+  const [
+    activeProjects,
+    counts,
+    threads,
+    tags,
+    journal,
+    pins,
+    streak,
+    todaysIntention,
+    weekAgg,
+    scrapsTotal,
+    trash,
+  ] = await Promise.all([
+    listProjects({ status: 'active', limit: 8 }),
+    projectCounts(),
+    threadCounts(),
+    topTags(8),
+    journalCounts(),
+    pinCounts(),
+    computeStreakSummary(),
+    getTodaysIntention(),
+    thisWeekAggregates(),
+    scrapsCount(),
+    trashCount(),
+  ]);
   const projectsForSidebar: SidebarProject[] = activeProjects.map((p) => ({
     id: p.id,
     title: p.title,
@@ -86,6 +101,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           focusSetDays: weekAgg.focusSetDays,
           journalDays: weekAgg.journalDays,
           byKind: weekAgg.byKind,
+        },
+        scraps: {
+          total: scrapsTotal,
+        },
+        trash: {
+          total: trash.total,
+          byKind: trash.byKind,
+          oldestDays: trash.oldestDays,
         },
       }}
     >
