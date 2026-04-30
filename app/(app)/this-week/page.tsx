@@ -1,87 +1,192 @@
-export default function ThisWeekPage() {
-  // Phase 4.1: static 7-day grid with the current day highlighted.
-  // Phase 4.3 wires in derived data from captures + intentions and Google
-  // Calendar sync per UI-REDESIGN-SPEC.md §10 Open #7.
-  const days = weekDaysAround(new Date());
+import Link from 'next/link';
+import { ChevronLeft, ChevronRight, PenLine, Flame } from 'lucide-react';
+import {
+  getWeekData,
+  resolveWeekStart,
+  formatWeekRange,
+  mondayOf,
+  type WeekDay,
+} from '@/lib/db/this-week';
+import type { CaptureKind } from '@/lib/capture/kinds';
+
+type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
+
+function isoOfMonday(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function shiftWeek(weekStartIso: string, deltaDays: number): string {
+  const d = new Date(`${weekStartIso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + deltaDays);
+  return isoOfMonday(d);
+}
+
+export default async function ThisWeekPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const sp = await searchParams;
+  const weekParam = typeof sp.week === 'string' ? sp.week : null;
+  const weekStart = resolveWeekStart(weekParam);
+  const data = await getWeekData(weekStart);
+
+  const prevHref = `/this-week?week=${shiftWeek(data.weekStart, -7)}`;
+  const nextHref = `/this-week?week=${shiftWeek(data.weekStart, 7)}`;
+  const todayHref = `/this-week?week=${isoOfMonday(mondayOf(new Date()))}`;
 
   return (
     <div className="space-y-6">
       <div className="forge-page-header">
         <h1>This week</h1>
-        <span className="forge-page-header__meta">{rangeLabel(days)}</span>
+        <span className="forge-page-header__meta">
+          {formatWeekRange(data.weekStart, data.weekEnd)}
+        </span>
         <div className="forge-page-header__actions">
-          <button type="button" className="forge-btn">◀</button>
-          <button type="button" className="forge-btn">Today</button>
-          <button type="button" className="forge-btn">▶</button>
+          <Link
+            href={prevHref}
+            className="forge-btn"
+            aria-label="Previous week"
+            style={{ textDecoration: 'none' }}
+          >
+            <ChevronLeft size={14} />
+          </Link>
+          {!data.isCurrentWeek && (
+            <Link
+              href={todayHref}
+              className="forge-btn"
+              style={{ textDecoration: 'none' }}
+            >
+              Today
+            </Link>
+          )}
+          <Link
+            href={nextHref}
+            className="forge-btn"
+            aria-label="Next week"
+            style={{ textDecoration: 'none' }}
+          >
+            <ChevronRight size={14} />
+          </Link>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-3">
-        {days.map((d) => (
-          <div
-            key={d.iso}
-            className="rounded-xl border p-3"
-            style={{
-              borderColor: d.today ? 'var(--ember-soft)' : 'var(--line)',
-              background: d.today
-                ? 'linear-gradient(135deg, var(--ember-soft), var(--bg-2) 60%)'
-                : 'var(--bg-2)',
-              minHeight: 220,
-            }}
-          >
-            <div className="text-[10px] uppercase tracking-[0.14em] text-ink-3" style={{ fontFamily: 'var(--mono)' }}>
-              {d.dayName}
-            </div>
-            <div
-              className="mt-0.5 font-medium leading-none"
-              style={{
-                fontFamily: 'var(--serif)',
-                fontSize: 22,
-                color: d.today ? 'var(--ember)' : 'var(--ink-0)',
-              }}
-            >
-              {d.label}
-            </div>
-            <div className="mt-3 italic text-xs text-ink-3" style={{ fontFamily: 'var(--serif)', fontSize: 13 }}>
-              {d.today ? 'No events yet — Calendar sync arrives in Phase 4.3.' : '—'}
-            </div>
-          </div>
+      <div className="forge-week-grid">
+        {data.days.map((d) => (
+          <DayCell key={d.iso} day={d} />
         ))}
       </div>
+
+      <WeekFooter data={data} />
     </div>
   );
 }
 
-function weekDaysAround(now: Date) {
-  const day = now.getDay(); // 0..6, Sun..Sat
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - ((day + 6) % 7)); // step back to Monday
-  const out: Array<{ iso: string; dayName: string; label: string; today: boolean }> = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    out.push({
-      iso: d.toISOString().slice(0, 10),
-      dayName: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i] ?? '',
-      label: i === 4 ? `${monthShort(d)} ${d.getDate()}` : String(d.getDate()),
-      today: sameDay(d, now),
-    });
+function DayCell({ day }: { day: WeekDay }) {
+  const empty =
+    !day.focus && day.captures.length === 0 && day.journal.length === 0;
+  return (
+    <div
+      className="forge-week-day"
+      data-today={day.isToday ? 'true' : 'false'}
+      data-future={day.isFuture ? 'true' : 'false'}
+    >
+      <div className="forge-week-day__header">
+        <div className="forge-week-day__name">{day.dayName}</div>
+        <div className="forge-week-day__num">{day.label}</div>
+      </div>
+
+      {day.focus && (
+        <div className="forge-week-day__focus">
+          <Flame size={11} className="forge-week-day__focus-ico" />
+          <span>{day.focus}</span>
+        </div>
+      )}
+
+      {day.captures.length > 0 && (
+        <ul className="forge-week-day__captures">
+          {day.captures.map((c) => (
+            <li key={c.id}>
+              <Link
+                href={`/capture/${c.id}`}
+                className="forge-week-day__cap"
+                data-kind={c.kind}
+                title={`${kindLabel(c.kind)} · ${c.title}`}
+              >
+                <span className="forge-week-day__dot" data-kind={c.kind} />
+                <span className="forge-week-day__cap-title">{c.title}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {day.journal.length > 0 && (
+        <Link
+          href="/journal"
+          className="forge-week-day__journal"
+          aria-label={`${day.journal.length} journal entries`}
+        >
+          <PenLine size={11} />
+          <span>
+            {day.journal.length === 1
+              ? '1 page'
+              : `${day.journal.length} pages`}
+          </span>
+        </Link>
+      )}
+
+      {empty && (
+        <div className="forge-week-day__empty">
+          {day.isFuture ? '—' : 'quiet'}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WeekFooter({ data }: { data: Awaited<ReturnType<typeof getWeekData>> }) {
+  const { aggregates } = data;
+  if (
+    aggregates.captureTotal === 0 &&
+    aggregates.focusSetDays === 0 &&
+    aggregates.journalDays === 0
+  ) {
+    return null;
   }
-  return out;
+  return (
+    <div className="forge-week-footer">
+      <div className="forge-week-footer__strip">
+        <span className="forge-week-footer__stat">
+          <strong>{aggregates.captureTotal}</strong>{' '}
+          {aggregates.captureTotal === 1 ? 'capture' : 'captures'}
+        </span>
+        <span className="forge-week-footer__sep">·</span>
+        <span className="forge-week-footer__stat">
+          <strong>{aggregates.focusSetDays}</strong> / 7 focuses set
+        </span>
+        <span className="forge-week-footer__sep">·</span>
+        <span className="forge-week-footer__stat">
+          <strong>{aggregates.journalDays}</strong>{' '}
+          {aggregates.journalDays === 1 ? 'journal day' : 'journal days'}
+        </span>
+      </div>
+      {aggregates.captureTotal > 0 && (
+        <div className="forge-week-footer__kinds">
+          {(['idea', 'problem', 'observation', 'research'] as CaptureKind[])
+            .filter((k) => aggregates.byKind[k] > 0)
+            .map((k) => (
+              <span key={k} className="forge-week-footer__kind" data-kind={k}>
+                <span className="forge-week-day__dot" data-kind={k} />
+                {k} · {aggregates.byKind[k]}
+              </span>
+            ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
-function rangeLabel(days: ReturnType<typeof weekDaysAround>): string {
-  const first = days[0];
-  const last = days[days.length - 1];
-  if (!first || !last) return '';
-  const a = new Date(first.iso);
-  const b = new Date(last.iso);
-  return `${monthShort(a)} ${a.getDate()} – ${monthShort(b)} ${b.getDate()}, ${b.getFullYear()}`;
-}
-
-function sameDay(a: Date, b: Date) {
-  return a.toDateString() === b.toDateString();
-}
-function monthShort(d: Date) {
-  return d.toLocaleString('en-US', { month: 'short' });
+function kindLabel(kind: CaptureKind): string {
+  return kind.charAt(0).toUpperCase() + kind.slice(1);
 }
