@@ -65,39 +65,112 @@
 | 2c cron | Register Sunday weekly-review schedule in Upstash | ✅ Registered 2026-04-29 (`0 17 * * 0` America/New_York). |
 | Spec sync | Comprehensive SPEC.md alignment with shipped state through Phase 2c | ✅ Merged (PR #19, commit `04a9236` on 2026-04-28). |
 | **Phase 2c** | **Weekly review fully shipped — chained job, email, push, cron all live** | **✅ Shipped 2026-04-29** |
+| 3a | Validate `QSTASH_URL` in Zod env schema + `.env.example` | ✅ Merged (PR #22, commit `0d94849`). |
+| 3b | Restore `@sentry/nextjs` with DSN-gated dynamic imports + `/sentry-test` smoke page | ✅ Merged (PR #23, commit `b7c1e85`). Smoke-tested locally; Issues land in `javascript-nextjs` project. |
+| 3 cron | Register `research-recovery` hourly schedule in Upstash | ✅ Registered 2026-04-29 (`0 * * * *` UTC). |
+| 3 vercel | Move `JOB_DEV_BEARER` env scope to Preview+Development only | ✅ Done 2026-04-29. |
+| 3 rotate | Rotate keys pasted in chat history during Phase 1+2 (Supabase service role + DB password, Anthropic, OpenAI, Shortcut, QStash quartet, Resend) | ✅ Done 2026-04-29. |
+| **Phase 3** | **Observability fully shipped — Sentry live, recovery cron live, env hygiene done, keys rotated** | **✅ Shipped 2026-04-29** |
 
 ---
 
 ## Next session — what to work on
 
-**Phase 2 is fully shipped.** No active item awaiting smoke test, no open PR, no pending cron. v1's daily loop (capture → research → nudge → develop-export → weekly review) is live end-to-end on `forge.mom`. The roadmap from here is more discretionary than time-pressured.
+**Phases 1, 2, and 3 are fully shipped.** v1's daily loop (capture → research → nudge → develop-export → weekly review) is live end-to-end on `forge.mom`, four crons LIVE in Upstash (morning + evening nudges, Sunday weekly review, hourly research-recovery), Sentry observability is wired with sourcemap upload, all keys pasted in chat history have been rotated.
+
+**The next thing on the roadmap is Phase 4 — a complete redesign with additional features and new pages.** This is intentionally a big chunk; it WILL be split into slices once Tommy hands over the design brief. As of this handoff, the brief hasn't been delivered yet — do not start coding ahead of it. If a session opens before Tommy has signaled "redesign is ready," the right move is to ask what he wants to work on rather than guess a slice.
+
+What was previously called Phase 4 (small polish + dashboards/export/manual-linking) has been **renumbered to Phase 5** — it's still in scope for v1, but parked until after the redesign lands.
 
 ### Already covered (don't worry about it)
 
 - **Sunday 2026-05-10 weekly-review cron verification** — a one-time scheduled remote agent fires Monday 2026-05-11 09:00 ET (routine `trig_01Er6yV4ksG4uNfRf8YP5829`, manage at https://claude.ai/code/routines) to search Gmail for the first organic weekly-review email and report `CLEAN` / `PARTIAL` / `FAILED`. Note: the **2026-05-03 cron will fire but produce no email** because `weekOfFor(Sun 5/3)` = `2026-04-27`, which is the smoke-test row and already at `status='sent'` — Stage 1 short-circuits with `already_sent`. The first organic full-chain fire is 5/10.
 
-### Pick from these (no order forced)
+### Phase 4 — Redesign (awaiting brief from Tommy)
 
-1. **Phase 3 Observability (SPEC §17)** — start here if you want a meaningful next chunk.
-   - Re-add `@sentry/nextjs` with dynamic imports gated on `SENTRY_DSN` env. See memory `project_sentry_deferred.md` for the exact restore steps.
-   - Register `research-recovery` QStash schedule (route exists at `app/api/jobs/research-recovery/route.ts`, needs `0 * * * *` UTC in Upstash).
-   - Move `JOB_DEV_BEARER` env scope from "All Environments" to Preview+Development only (currently harmless but tidier).
-   - Rotate keys pasted in chat history during Phase 1+2 setup (Supabase service role, Anthropic, OpenAI, SHORTCUT_API_TOKEN, QStash quartet, Resend if it was ever pasted).
-   - Add `QSTASH_URL` to `lib/env.ts` Zod schema and `.env.example` (works at runtime via `process.env`, but isn't validated at startup — small follow-up).
+A complete redesign with additional features and new pages. Will be split into slices once scope is clear.
 
-2. **Phase 4 small polish — pick what feels worth it.** Each is bite-sized and standalone.
-   - **Detail-page polling** for `research_status` (~20–30 LOC, see end-of-file Enhancements section). Becomes valuable now that Phase 2b is live.
-   - **Real PWA icons** — current `public/icons/{icon-192, icon-512, apple-touch-icon}.png` are programmatic dark-square placeholders. Replace before showing the app to anyone.
-   - **Migrate research + nudge routes to `lib/jobs/job-runs.ts`** — slice 3 extracted Layer B claim helpers; the older two routes still inline their own copies (~50 LOC dedup each, out-of-scope cleanup).
+**Status as of this handoff:** brief not yet delivered. Tommy will signal when he's ready. **Do not pre-emptively design, scaffold, or code anything for Phase 4** before the brief — guessing the direction will likely waste work.
 
-3. **Soak time.** v1 just shipped end-to-end three days ago. There's a defensible case for letting Tommy *use* the app for a few weeks before adding more surface area — capture daily, watch the weekly digest, see what actually annoys him in practice. SPEC §4.10 explicitly defers "structured expansion sections per capture" until v1 has run for a few weeks; the same logic applies to most Phase 4 items. If the next session opens with no specific request from Tommy, default to "ask what he wants to work on" rather than picking a phase.
+When the brief lands, the standard workflow applies: one sub-phase = one PR, branch per slice, CI green + smoke test on `forge.mom` before merge. The existing surfaces (capture / dashboard / detail / review / settings-style routes) should be assumed *replaceable* unless the brief preserves them.
+
+### Phase 5 — Polish + remaining v1 items (parked until Phase 4 ships)
+
+Previously called "Phase 4" pre-renumber. Bite-sized standalone items that can be picked up after the redesign settles.
+
+**Small polish:**
+- **Detail-page polling for `research_status`** (~20–30 LOC, see end-of-file Enhancements section). Right now `/capture/[id]` doesn't auto-update during the 60–120s research run; manual refresh required. Note: the redesign may obviate this entirely if it changes detail-page architecture.
+- **Real PWA icons** — current `public/icons/{icon-192, icon-512, apple-touch-icon}.png` are programmatic dark-square placeholders. Should ship before any wider use of the app, regardless of redesign.
+- **Migrate research + nudge routes to `lib/jobs/job-runs.ts`** — slice 3 of Phase 2c extracted Layer B claim helpers; the older two routes still inline their own copies (~50 LOC dedup each, pure cleanup).
+- **Remove `/sentry-test` route** if you decide you don't want the permanent smoke surface in prod (currently kept; auth-gated to owner only, ~60 LOC).
+
+**Substantive (need design conversation first):**
+- **Manual linking UI** (§4.7) — schema + UX both need talking through.
+- **`merge_captures` task** — gated on manual linking shipping first.
+- **`/settings/costs`, `/settings/health`, `/settings/jobs` dashboards** (§4.9 / §4.10).
+- **Export to JSON** (§4.11).
+- **Dashboard quality-of-life** — Serious Ideas filter, search.
+
+### Soak time (still a valid path)
+
+v1 just shipped end-to-end. There's a defensible case for letting Tommy *use* the app for a few weeks between major chunks — capture daily, watch the weekly digest, see what actually annoys him in practice. The Phase 4 redesign brief will likely be informed by that soak. SPEC §4.10 explicitly defers "structured expansion sections per capture" on this logic; treat the same skepticism toward speculative Phase 5 work.
 
 ### Don't do without explicit ask
 
-- Phase 4 manual-linking UI (§4.7) — designed but the schema + UX both need a real conversation first.
-- Phase 4 `merge_captures` task — the SPEC sync flagged this as a Phase 4 item; not unlocked until manual linking ships.
+- **Anything in Phase 4** before Tommy delivers the design brief.
 - Anything that touches the develop-prompt export (§4.6) — Tommy ran it through one smoke test, the wording is intentional. Don't refactor for clarity.
-- Anything cron-related on `forge.mom` (registering, modifying, disabling) without explicit confirmation. Three schedules are live and Tommy's habits depend on them.
+- Anything cron-related on `forge.mom` (registering, modifying, disabling) without explicit confirmation. Four schedules are live and Tommy's habits depend on them.
+- Phase 5 manual-linking UI / `merge_captures` task / settings dashboards — wait for the redesign to settle before pre-committing to UX shapes.
+
+---
+
+## Phase 3 — fully shipped (2026-04-29)
+
+Two code slices + three dashboard-only tasks. All four crons are now LIVE.
+
+### Slice 1 — `QSTASH_URL` env validation (PR #22, commit `0d94849`)
+
+- `lib/env.ts` — `QSTASH_URL` added to the Zod schema as optional with `.url()` validation. Originally written as `z.string().url().optional()`, but slice 2's prod build caught the latent bug that `.url()` runs against an empty string before `.optional()` short-circuits. Slice 2 retroactively swapped this and the Sentry envs to use a shared `optionalUrl` preprocess that coerces empty → undefined.
+- `.env.example` — `QSTASH_URL=` line added under the QStash section with a comment about the regional-routing trap (memory `feedback_qstash_regional_url.md`).
+- Pure tracked-debt cleanup; runtime behavior unchanged when `QSTASH_URL` is correctly set in Vercel (which it has been since Phase 2a).
+
+### Slice 2 — Sentry restore (PR #23, commit `b7c1e85`)
+
+- Reinstalled `@sentry/nextjs@^10.51.0` (uninstalled in Phase 1a).
+- New files: `sentry.{server,edge}.config.ts`, `instrumentation-client.ts`, `app/sentry-test/page.tsx`. Updated: `instrumentation.ts`, `next.config.ts`, `lib/env.ts`, `.env.example`.
+- **Architectural rules baked in** (per memory `feedback_sentry_dsn_gating.md`):
+  - `instrumentation.ts` only does `import type` from `@sentry/nextjs` at module top — Sentry is dynamic-imported inside `register()` and `onRequestError`, both gated on `process.env.SENTRY_DSN`. Static-import-at-top would drag the package into the edge bundle even DSN-less.
+  - `next.config.ts` only wraps with `withSentryConfig` when `SENTRY_DSN` is set; sourcemap upload activates separately when `SENTRY_AUTH_TOKEN` is also set (no code change needed to enable).
+  - CSP `connect-src` derives the Sentry ingest origin from `NEXT_PUBLIC_SENTRY_DSN` at build time — `new URL(dsn).origin` — so the browser SDK can POST without a CSP violation.
+- **Empty-string env trap:** `z.string().url().optional()` does NOT accept empty values; `process.env.FOO === ''` runs `.url()` validation and fails. Saved as memory `feedback_zod_url_empty_string.md`. Fix: `optionalUrl` preprocess in `lib/env.ts` that coerces empty → undefined. Applied to `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, `QSTASH_URL`.
+- `/sentry-test` page (auth-gated by proxy.ts) is the permanent smoke surface — two buttons (explicit `Sentry.captureException` + click-handler throw). Useful for re-verifying after env changes.
+
+### Slice 2 smoke test (2026-04-29) — Inbound Filters / Safari quirks
+
+Smoke test ran into two false alarms:
+
+1. **First attempt: events were "accepted" but didn't appear in Issues.** Network tab showed three `envelope` POSTs at 499 bytes returning 200 — the small payload turned out to be session pings, not error events. The console-typed `throw new Error("sentry test")` in Safari was not reliably firing `window.onerror`, so the SDK's global handler never captured them.
+2. **Second attempt: the explicit `Sentry.captureException()` button worked immediately** — issue landed in `javascript-nextjs` project as `JAVASCRIPT-NEXTJS-2`. The click-handler throw also worked (proves the global handler IS installed; the previous miss was specifically Safari's console-typed error path).
+
+Critical lesson: **dev-server restart is mandatory after adding `NEXT_PUBLIC_*` env vars.** Next inlines them at startup; adding to `.env.local` while `pnpm dev` is running has no effect. Documented in `feedback_sentry_dsn_gating.md`.
+
+Also briefly suspected Inbound Filters / DSN routing — neither was the issue. The "Filter out events from localhost" toggle is OFF in this project; keep it that way for future smoke tests.
+
+### Cron schedule — LIVE in production
+
+`research-recovery` hourly schedule registered in Upstash QStash on 2026-04-29:
+
+| Cron        | Timezone | URL                                                       |
+|-------------|----------|-----------------------------------------------------------|
+| `0 * * * *` | UTC      | `https://forge.mom/api/jobs/research-recovery`            |
+
+Recovery sweep — only matters if a `running` row goes stale, which is rare at v1 volumes. Health check via `select * from job_runs where job_name='research_recovery' order by started_at desc limit 5;`.
+
+### Vercel + key rotations (2026-04-29)
+
+- `JOB_DEV_BEARER` env scope narrowed from "All Environments" to Preview + Development only. Was harmless (gated on `NODE_ENV !== 'production'` in `lib/qstash.ts:50`) but tidier.
+- All keys pasted in chat history during Phase 1 + 2 setup were rotated: Supabase service-role JWT + DB password, Anthropic API key, OpenAI API key, `SHORTCUT_API_TOKEN`, QStash quartet, `RESEND_API_KEY`, `SENTRY_AUTH_TOKEN` (the last got pasted in chat during Phase 3 verification — same flag, immediate revoke + rotate).
+- `SENTRY_AUTH_TOKEN` (fresh value) added to Vercel Production scope alongside `SENTRY_ORG=tommy-fitzgibbons` and `SENTRY_PROJECT=javascript-nextjs`. Sourcemap upload activates on next prod build.
 
 ---
 
@@ -250,20 +323,17 @@ Final smoke test passed end-to-end: idea capture → auto-enqueue → Sonnet+web
 
 ### Immediate
 
-1. **Detail-page polling** (small UX polish — see end-of-file "Enhancements" section).
-2. **Real PWA icons.** `public/icons/{icon-192, icon-512, apple-touch-icon}.png` are programmatically-generated dark-square placeholders from a Node PNG encoder. Replace with real branding before showing the app to anyone.
+Nothing immediate. All Phase 3 items shipped 2026-04-29. The Phase 4 redesign brief is the next inbound from Tommy.
 
-The task registry / runner machinery from Phase 1c + 2a + 2b + 2c is already in place — adding new tasks is mostly: write the prompt MD, register in `lib/ai/tasks.ts`, call `runTask`. Both JSON-text and tool-as-output extraction patterns are supported by the runner.
+### Tracked debt (parked for Phase 5)
 
-### Tracked debt
+- **Detail-page polling** for `research_status` — small UX polish, see end-of-file "Enhancements" section. May be obviated by the Phase 4 redesign.
+- **Real PWA icons.** `public/icons/{icon-192, icon-512, apple-touch-icon}.png` are programmatically-generated dark-square placeholders. Should ship before any wider use of the app.
+- **Migrate research + nudge routes to `lib/jobs/job-runs.ts`.** Slice 3 of Phase 2c extracted the Layer B claim/mark helpers into a shared module; the older two routes still inline their own copies. Pure cleanup, ~50 lines of dedup each.
+- **`/sentry-test` route** — currently kept as a permanent smoke surface (auth-gated, ~60 LOC). Can be removed if the Phase 4 redesign wants the route surface clean.
+- **Vercel preview auth.** Magic-link redirects pin to `https://forge.mom`, so login doesn't round-trip on ephemeral preview URLs. Fix if previews-with-auth become valuable: either swap to runtime `VERCEL_URL` for redirect derivation, or wildcard `*.vercel.app/auth/callback` in Supabase Redirect URLs.
 
-- **Add `QSTASH_URL` to `lib/env.ts` Zod schema and `.env.example`.** It's set in Vercel and works at runtime (the `@upstash/qstash` SDK reads it directly from `process.env`), but our Zod schema doesn't validate it, so a missing/typo'd value would not throw at startup. See memory `feedback_qstash_regional_url.md`. Small follow-up PR.
-- **Rotate keys** that have been pasted in chat history during Phase 1 + 2a setup. Specifically: Supabase service-role JWT, Supabase DB password, Anthropic API key, OpenAI API key, SHORTCUT_API_TOKEN, QSTASH_TOKEN, QSTASH_CURRENT_SIGNING_KEY, QSTASH_NEXT_SIGNING_KEY, QSTASH_URL (the URL itself isn't secret but rotating the token invalidates the URL pairing). Also: `RESEND_API_KEY` if it was ever pasted.
-- **Re-add Sentry in Phase 3.** It was removed during Phase 1a. See `~/.claude/projects/-Users-tommyfitz-Forge/memory/project_sentry_deferred.md` for the exact restore steps.
-- **Migrate research + nudge routes to `lib/jobs/job-runs.ts`.** Slice 3 extracted the Layer B claim/mark helpers into a shared module; the older two routes still inline their own copies. Out-of-scope cleanup, ~50 lines of dedup each.
-- **Register `research-recovery` QStash schedule.** Route exists at `app/api/jobs/research-recovery/route.ts` but isn't yet on a cron. SPEC §12.1 says hourly UTC. Low priority — it's a recovery sweep, only matters if a `running` row goes stale, which is rare at v1 volumes.
-- **Vercel preview auth.** Magic-link redirects pin to `https://forge.mom`, so login doesn't round-trip on ephemeral preview URLs. Fix in Phase 2/3 if previews-with-auth become valuable: either swap to runtime `VERCEL_URL` for redirect derivation, or wildcard `*.vercel.app/auth/callback` in Supabase Redirect URLs.
-- **`JOB_DEV_BEARER` is currently scoped to "All Environments" in Vercel** (per the dashboard inspection during Phase 2a debugging). It only takes effect when `NODE_ENV !== 'production'` per `lib/qstash.ts:50`, so it's harmless in prod, but on principle it should be Preview+Development only. Low priority cleanup.
+The task registry / runner machinery from Phase 1c + 2a + 2b + 2c is in place — adding new AI tasks is: write the prompt MD, register in `lib/ai/tasks.ts`, call `runTask`. Both JSON-text and tool-as-output extraction patterns are supported.
 
 ---
 
@@ -281,7 +351,8 @@ These are saved as memories — load them via the memory system:
 - **`feedback_intl_h23_node_icu.md`** — `Intl.DateTimeFormat` with `hour12: false` emits `'24'` for midnight on some Node ICU builds (Node 22+ Linux, GitHub Actions). Always use `hourCycle: 'h23'` — it's the only spec-defined way to get 0–23 reporting consistently. Caught only by CI; local macOS Node 20 returns `'00'`.
 - **`feedback_qstash_dedup_id_chars.md`** — QStash's `deduplicationId` accepts only `[a-zA-Z0-9_-]`. Colons return `500 {"error":"DeduplicationId cannot contain ':'"}` and dead-letter after retries. Use `_` or `-` as separators. The `job_runs.idempotency_key` Postgres column has different rules — colons are fine there. Don't conflate the two namespaces. Caught during Phase 2c slice 3 smoke test.
 - **`project_vercel_fluid_compute.md`** — Forge's Vercel project has Fluid Compute enabled (`resourceConfig.fluid: true`). This lifts the legacy 60s Hobby function cap so background jobs can declare `maxDuration` up to ~300s. Important context for sizing route timeouts.
-- **`project_sentry_deferred.md`** — `@sentry/nextjs` is uninstalled. `instrumentation.ts` is a no-op stub. Re-wire in Phase 3 with dynamic imports gated on `process.env.SENTRY_DSN`.
+- **`feedback_sentry_dsn_gating.md`** — `@sentry/nextjs` is restored (^10.51). Never `import * as Sentry from '@sentry/nextjs'` at module top of `instrumentation.ts` — it drags the package into the edge bundle. Dynamic-import inside `register()` and `onRequestError`, both gated on `SENTRY_DSN`. `withSentryConfig` only wraps when DSN is set; sourcemap upload activates separately when `SENTRY_AUTH_TOKEN` is set. CSP `connect-src` derives Sentry origin from the public DSN. `/sentry-test` page (auth-gated) is the smoke surface. Inbound Filter "Filter out events from localhost" is OFF — keep it that way.
+- **`feedback_zod_url_empty_string.md`** — `z.string().url().optional()` rejects empty strings. `process.env.FOO === ''` (empty value in `.env.local` from a copy-pasted template) runs `.url()` validation before `.optional()` short-circuits, then fails. Use the `optionalUrl` preprocess in `lib/env.ts` that coerces empty → undefined.
 - **`project_resend_sender.md`** — Forge weekly emails send from `forge@biddrop.app`, not `forge.mom`. Free Resend tier only allows one verified domain; `biddrop.app` is already verified for an unrelated project, so weekly review reuses it. The local-part doesn't need to match the domain side. Don't suggest verifying `forge.mom` until the Resend plan upgrades.
 - **`project_forge.md`** — Project basics, solo merge policy, single-tenant invariant.
 
@@ -295,7 +366,7 @@ These are saved as memories — load them via the memory system:
 
 ---
 
-## Architecture map (where things live, current as of 2026-04-28)
+## Architecture map (where things live, current as of 2026-04-29)
 
 ```
 SPEC.md                          # source of truth (v1.1 + §4.6 rewrite + §4.10 + 2026-04-28 spec sync)
@@ -303,8 +374,11 @@ SPEC-1.1-CHECKLIST.md
 HANDOFF.md                       # this file
 README.md                        # quickstart + iOS Shortcut setup
 proxy.ts                         # OWNER_EMAIL enforcement, Node runtime (was middleware.ts pre-Next 16)
-next.config.ts                   # CSP, HSTS (prod-only), serverActions bodySizeLimit (15MB), Serwist withSerwist wrapper
-instrumentation.ts               # no-op stub (Sentry deferred)
+next.config.ts                   # CSP (with Sentry origin), HSTS (prod-only), serverActions bodySizeLimit (15MB), Serwist + conditional withSentryConfig wrappers
+instrumentation.ts               # Phase 3 — DSN-gated dynamic Sentry import for register() + onRequestError
+instrumentation-client.ts        # Phase 3 — browser-side Sentry init, gated on NEXT_PUBLIC_SENTRY_DSN
+sentry.server.config.ts          # Phase 3 — Node runtime Sentry init (no-op when DSN unset)
+sentry.edge.config.ts            # Phase 3 — Edge runtime Sentry init (no-op when DSN unset)
 package.json                     # `dev` + `build` scripts pass --webpack (Serwist + Turbopack incompat)
 
 app/
@@ -312,6 +386,7 @@ app/
 ├── sw.ts                        # Service worker source — push + notificationclick + Serwist precache (2b slice 1)
 ├── layout.tsx                   # root layout — manifest link, apple-touch-icon, viewport
 ├── globals.css
+├── sentry-test/page.tsx         # Phase 3 — auth-gated smoke surface, two buttons (explicit captureException + click-handler throw)
 ├── (auth)/login/                # magic-link form + server action with §14 spam guard
 ├── auth/callback/route.ts       # exchanges OAuth code → session
 ├── (app)/
@@ -446,10 +521,13 @@ tests/unit/
   - `APP_SCHEDULE_TZ` (defaults to `America/New_York`)
   - `MAX_MONTHLY_COST_USD` (default 25), `MAX_RESEARCH_COST_USD` (default 0.25)
 - **Phase-2 vars currently set in production** (still `optional()` in `lib/env.ts`):
-  - QStash quartet: `QSTASH_URL`, `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY` (Phase 2a). All four are required for the daily-nudge cron to verify and publish.
+  - QStash quartet: `QSTASH_URL`, `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY` (Phase 2a). All four required for cron verification + publish. Phase 3 slice 1 added `QSTASH_URL` to the Zod schema (was previously read directly by the SDK without validation).
   - VAPID trio: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (Phase 2b slice 1). Generated via `npx web-push generate-vapid-keys`. Required for `/api/push/*` and `/api/jobs/nudge` to function; routes 503 / log-and-skip without them.
-- **Optional, deferred to later phases**: Sentry (Phase 3), Resend (Phase 2c — `RESEND_API_KEY`, `RESEND_FROM_ADDRESS`).
-- **Vercel** mirrors all required vars across Production / Preview / Development.
+  - Resend pair: `RESEND_API_KEY`, `RESEND_FROM_ADDRESS` (Phase 2c). Sender is `forge@biddrop.app` per memory `project_resend_sender.md`.
+- **Phase-3 Sentry vars currently set in production** (all `optional()`; uses `optionalUrl` preprocess so empty strings coerce to undefined):
+  - `SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN` — required for Sentry to actually init. When unset, `instrumentation.ts` early-returns and `withSentryConfig` isn't applied.
+  - `SENTRY_ORG=tommy-fitzgibbons`, `SENTRY_PROJECT=javascript-nextjs`, `SENTRY_AUTH_TOKEN` — sourcemap upload trio. Adding/removing the auth token alone toggles upload behavior; no code change needed.
+- **Vercel** mirrors all required vars across Production / Preview / Development. **`JOB_DEV_BEARER` is scoped Preview + Development only** (Phase 3 narrowed from "All Environments" — harmless before since gated on `NODE_ENV !== 'production'`).
 - **Supabase Auth → Redirect URLs:** allowlist includes `http://localhost:3000/**` and `https://forge.mom/**`. Add ephemeral preview URLs only if needed (currently not).
 - **Supabase CLI** is linked to the remote project. Password lives in macOS keychain. To run a migration: `pnpm db:new <name>`, edit the generated SQL, `pnpm db:push`. Always re-run `pnpm db:types` after `db:push`.
 
@@ -493,16 +571,19 @@ git switch main && git pull
 7. **HEIC photos.** User has switched their iPhone to "Most Compatible" so all uploads are JPEG. Don't add HEIC transcoding — it was a deliberate non-goal (SPEC §19).
 8. **Self-auth API routes need precise middleware allowlist.** `/api/capture` is on the exact-match set in `lib/supabase/middleware.ts`; new routes that use `?source=` or Bearer auth should be added to either `SELF_AUTH_API_PREFIXES` (with a trailing slash to avoid `-batch`-style collisions) or `SELF_AUTH_API_EXACT`. `/api/jobs/*` and `/api/push/*` are already self-auth (signature / cookie respectively).
 9. **`responded_at` is the 48h debounce gate.** Capture detail page sets it server-side when loaded with `?nudge=:id`. If you change how nudge taps are routed (e.g. add a query parameter, change the URL shape, intercept in a client component), make sure `responded_at` still gets written on the same code path — otherwise the same capture will get re-picked next slot.
-10. **Cron schedules are LIVE in Upstash.** `/api/jobs/nudge` fires twice daily at 10am + 5pm `America/New_York`. Don't change the route's request/response shape without auditing how Upstash retries handle it (Layer-B `job_runs` makes most retries safe, but a route that throws before the claim is dangerous — the QStash redelivery would retry, claim, then complete, leaving the original retry stuck).
+10. **Cron schedules are LIVE in Upstash.** Four schedules run on `forge.mom`: nudges twice daily (10am + 5pm `America/New_York`), weekly review (Sunday 5pm `America/New_York`), research-recovery hourly UTC. Don't change route request/response shapes without auditing how Upstash retries handle it (Layer-B `job_runs` makes most retries safe, but a route that throws before the claim is dangerous — the QStash redelivery would retry, claim, then complete, leaving the original retry stuck).
 11. **PWA service worker updates.** When `app/sw.ts` changes meaningfully, iOS users may need to force-quit + reopen the installed PWA to pick up the new SW. Serwist's `skipWaiting + clientsClaim` handles most cases automatically, but the first load after deploy can serve the old shell.
+12. **Sentry instrumentation.ts must not static-import `@sentry/nextjs`.** Use `import type` only at module top; dynamic-import inside `register()` and `onRequestError`, gated on `process.env.SENTRY_DSN`. Static import drags `@sentry/node` + `@opentelemetry` into the edge bundle even when DSN-less. See memory `feedback_sentry_dsn_gating.md`.
+13. **`NEXT_PUBLIC_*` env vars require dev-server restart.** Next inlines them at startup; adding/changing in `.env.local` while `pnpm dev` is running has no effect on the bundled JS. This is what tripped up Sentry slice 2 smoke ("envelope POSTs go out but events don't appear" usually means the SDK loaded with an empty DSN string from a previous build).
+14. **Phase 4 redesign hasn't started.** Don't pre-emptively scaffold redesign-shaped routes, components, or schema migrations before Tommy delivers the brief. Any guess about direction will likely be wrong and waste work.
 
 ---
 
 ## How to use this with a new session
 
 1. Open a fresh Claude Code session in `/Users/tommyfitz/Forge`.
-2. Tell it: *"Read HANDOFF.md and the memory directory at `~/.claude/projects/-Users-tommyfitz-Forge/memory/`. Phase 2 is fully shipped end-to-end — capture, research, daily nudges, develop-prompt export, weekly review with cron LIVE. Pick up from the TODOs section."*
-3. The session should report: all of Phase 1 + Phase 2 (2a research / 2b nudges / 2c weekly review / 2d develop export) shipped and verified on `forge.mom`. Three Upstash cron schedules LIVE: morning + evening nudges + Sunday weekly review. Open work is the small TODO list (detail-page polling, real PWA icons) plus tracked debt (Sentry restore in Phase 3, route dedup, key rotation).
+2. Tell it: *"Read HANDOFF.md and the memory directory at `~/.claude/projects/-Users-tommyfitz-Forge/memory/`. Phases 1, 2, 3 are fully shipped. Phase 4 is a complete redesign awaiting a brief from me — don't start anything Phase 4 until I deliver it."*
+3. The session should report: all of Phase 1 + 2 + 3 shipped and verified on `forge.mom`. Four Upstash cron schedules LIVE: morning + evening nudges, Sunday weekly review, hourly research-recovery. Sentry observability live with sourcemap upload. All keys rotated. Phase 4 = redesign awaiting brief; Phase 5 = polish/dashboards/manual-linking parked until after redesign.
 
 ---
 
