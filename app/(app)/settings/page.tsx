@@ -2,9 +2,11 @@ import Link from 'next/link';
 import { getCostsSummary } from '@/lib/db/settings-costs';
 import { getHealthSummary } from '@/lib/db/settings-health';
 import { getJobsSummary } from '@/lib/db/settings-jobs';
+import { getExportCounts } from '@/lib/export/build-export';
 import { CostsTab } from './CostsTab';
 import { HealthTab } from './HealthTab';
 import { JobsTab } from './JobsTab';
+import { ExportTab } from './ExportTab';
 
 type SearchParams = Promise<{ tab?: string }>;
 
@@ -12,6 +14,7 @@ const TABS = [
   { id: 'costs', label: 'Costs' },
   { id: 'health', label: 'Health' },
   { id: 'jobs', label: 'Jobs' },
+  { id: 'export', label: 'Export' },
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
 
@@ -27,10 +30,11 @@ export default async function SettingsPage({
   const sp = await searchParams;
   const active: TabId = isTab(sp.tab) ? sp.tab : 'costs';
 
-  const [costs, health, jobs] = await Promise.all([
+  const [costs, health, jobs, exportCounts] = await Promise.all([
     active === 'costs' ? getCostsSummary() : null,
     active === 'health' ? getHealthSummary() : null,
     active === 'jobs' ? getJobsSummary() : null,
+    active === 'export' ? getExportCounts() : null,
   ]);
 
   return (
@@ -56,6 +60,7 @@ export default async function SettingsPage({
       {active === 'costs' && costs && <CostsTab data={costs} />}
       {active === 'health' && health && <HealthTab data={health} />}
       {active === 'jobs' && jobs && <JobsTab data={jobs} />}
+      {active === 'export' && exportCounts && <ExportTab counts={exportCounts} />}
     </div>
   );
 }
