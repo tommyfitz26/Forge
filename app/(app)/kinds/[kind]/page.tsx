@@ -1,15 +1,14 @@
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { formatDistanceToNow } from 'date-fns';
-import { ScrollText } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { CAPTURE_KINDS, type CaptureKind } from '@/lib/capture/kinds';
+import { pinnedSetForOwner } from '@/lib/db/pins';
+import { CAPTURE_KINDS, type CaptureKind, type CaptureState } from '@/lib/capture/kinds';
+import { StreamRows, type StreamRowData } from '../../stream/StreamRows';
 
 type Params = { kind: string };
 
 const KIND_BLURB: Record<CaptureKind, string> = {
   idea: 'startup ideas and proposed solutions',
-  problem: 'frustrations and observations of what\'s broken',
+  problem: "frustrations and observations of what's broken",
   observation: 'cool noticings, not yet a problem or idea',
   research: 'questions you want the AI to chase down',
 };
@@ -24,15 +23,33 @@ export default async function KindFilterPage({
   const k = kind as CaptureKind;
 
   const supabase = await createClient();
-  const { data } = await supabase
-    .from('captures')
-    .select('id, title, content, kind, state, created_at')
-    .eq('kind', k)
-    .neq('state', 'archived')
-    .order('created_at', { ascending: false })
-    .limit(50);
+  const [{ data }, pinned] = await Promise.all([
+    supabase
+      .from('captures')
+      // is_project + project_id are 4.3.1 columns; the auto-generated db.ts
+      // hasn't picked them up yet so the row is cast at the use site.
+      .select('id, title, content, kind, state, created_at, is_project, project_id')
+      .eq('kind', k)
+      .neq('state', 'archived')
+      .order('created_at', { ascending: false })
+      .limit(50),
+    pinnedSetForOwner(),
+  ]);
 
-  const captures = data ?? [];
+  const captures: StreamRowData[] = (data ?? []).map((c) => {
+    const row = c as typeof c & { is_project?: boolean; project_id?: string | null };
+    return {
+      id: row.id,
+      title: row.title,
+      content: row.content ?? '',
+      kind: row.kind as CaptureKind,
+      state: row.state as CaptureState,
+      created_at: row.created_at,
+      is_project: Boolean(row.is_project),
+      project_id: row.project_id ?? null,
+      is_pinned: pinned.has(`capture:${row.id}`),
+    };
+  });
 
   return (
     <div className="space-y-6">
@@ -54,32 +71,8 @@ export default async function KindFilterPage({
           </div>
         </div>
       ) : (
-        <div className="forge-list-card">
-          {captures.map((c) => (
-            <Link key={c.id} href={`/capture/${c.id}`} className="forge-list-row">
-              <div className="forge-list-row__icon">
-                <ScrollText size={14} />
-              </div>
-              <div className="forge-list-row__body">
-                <div className="forge-list-row__title">{c.title}</div>
-                <div className="forge-list-row__preview">{previewText(c.content)}</div>
-              </div>
-              <div className="forge-list-row__right">
-                <span className="forge-list-row__when">
-                  {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}
-                </span>
-                <span className="forge-tag-pill">{c.state}</span>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <StreamRows captures={captures} />
       )}
     </div>
   );
-}
-
-function previewText(s: string | null): string {
-  if (!s) return '';
-  const oneLine = s.replace(/\s+/g, ' ').trim();
-  return oneLine.length > 120 ? oneLine.slice(0, 120) + '…' : oneLine;
 }

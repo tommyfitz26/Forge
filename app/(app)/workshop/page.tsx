@@ -6,6 +6,10 @@ import { gradientKeyForKind, type CoverGradientKey } from '@/lib/types/projects'
 import { ProjectCover } from '@/components/projects/ProjectCover';
 import { NewProjectButton } from '@/components/projects/WorkshopHeader';
 import { PinButton } from '@/components/projects/PinButton';
+import {
+  ProjectContextMenuProvider,
+  ProjectRow,
+} from '@/components/projects/ProjectContextMenu';
 
 export default async function WorkshopPage() {
   const [projects, pinned] = await Promise.all([listProjects({}), pinnedSetForOwner()]);
@@ -42,6 +46,7 @@ export default async function WorkshopPage() {
           </div>
         </div>
       ) : (
+        <ProjectContextMenuProvider>
         <div className="forge-projects">
           {projects.map((p) => {
             const gradient: CoverGradientKey =
@@ -65,39 +70,42 @@ export default async function WorkshopPage() {
                     : 'Archived';
             const isPinned = pinned.has(`project:${p.id}`);
             return (
-              <div
+              <ProjectRow
                 key={p.id}
+                target={{ id: p.id, status: p.status, isPinned }}
                 className="forge-proj"
-                data-featured={featured ? 'true' : 'false'}
                 style={{ position: 'relative' }}
               >
-                <Link href={`/projects/${p.id}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
-                  <ProjectCover gradientKey={gradient} stage={statusLabel} />
-                  <div className="forge-proj__body">
-                    <h3 className="forge-proj__title">
-                      {featured && <span className="forge-proj__title-pin">●</span>}
-                      {p.title}
-                    </h3>
-                    {p.deck && <div className="forge-proj__deck">{p.deck}</div>}
-                    <div className="forge-proj__meta">
-                      {p.kind_seed && <span>#{p.kind_seed}</span>}
-                      {p.kind_seed && <span className="dot" />}
-                      <span>opened {new Date(p.opened_at).toLocaleDateString()}</span>
-                    </div>
-                    {typeof p.progress_pct === 'number' && (
-                      <div className={barClass}>
-                        <div style={{ width: `${Math.max(0, Math.min(100, p.progress_pct))}%` }} />
+                <div data-featured={featured ? 'true' : 'false'}>
+                  <Link href={`/projects/${p.id}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
+                    <ProjectCover gradientKey={gradient} stage={statusLabel} />
+                    <div className="forge-proj__body">
+                      <h3 className="forge-proj__title">
+                        {featured && <span className="forge-proj__title-pin">●</span>}
+                        {p.title}
+                      </h3>
+                      {p.deck && <div className="forge-proj__deck">{p.deck}</div>}
+                      <div className="forge-proj__meta">
+                        {p.kind_seed && <span>#{p.kind_seed}</span>}
+                        {p.kind_seed && <span className="dot" />}
+                        <span>opened {new Date(p.opened_at).toLocaleDateString()}</span>
                       </div>
-                    )}
+                      {typeof p.progress_pct === 'number' && (
+                        <div className={barClass}>
+                          <div style={{ width: `${Math.max(0, Math.min(100, p.progress_pct))}%` }} />
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+                  <div style={{ position: 'absolute', top: 8, right: 8 }}>
+                    <PinButton sourceKind="project" sourceId={p.id} initiallyPinned={isPinned} />
                   </div>
-                </Link>
-                <div style={{ position: 'absolute', top: 8, right: 8 }}>
-                  <PinButton sourceKind="project" sourceId={p.id} initiallyPinned={isPinned} />
                 </div>
-              </div>
+              </ProjectRow>
             );
           })}
         </div>
+        </ProjectContextMenuProvider>
       )}
     </div>
   );

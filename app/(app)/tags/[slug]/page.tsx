@@ -2,6 +2,11 @@ import Link from 'next/link';
 import { Hash } from 'lucide-react';
 import { listJournalEntries } from '@/lib/db/journal';
 import { DeleteEntryButton } from '@/components/journal/DeleteEntryButton';
+import {
+  JournalEntryContextMenuProvider,
+  JournalEntryRow,
+} from '@/components/journal/JournalEntryContextMenu';
+import { pinnedSetForOwner } from '@/lib/db/pins';
 
 type Params = { slug: string };
 
@@ -11,7 +16,10 @@ export default async function TagFilterPage({
   params: Promise<Params>;
 }) {
   const { slug } = await params;
-  const entries = await listJournalEntries({ tag: slug, limit: 200 });
+  const [entries, pinned] = await Promise.all([
+    listJournalEntries({ tag: slug, limit: 200 }),
+    pinnedSetForOwner(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -44,36 +52,48 @@ export default async function TagFilterPage({
           </div>
         </div>
       ) : (
-        <div className="forge-journal" style={{ marginLeft: 0 }}>
-          {entries.map((e) => (
-            <article key={e.id} className="forge-journal-entry">
-              <div className="forge-journal-entry__date">
-                {prettyDate(e.written_at)}
-                <span className="weekday">{weekday(e.written_at)}</span>
-                <span className="forge-journal-entry__date-actions">
-                  <DeleteEntryButton id={e.id} />
-                </span>
-              </div>
-              <div className="forge-journal-entry__body">{e.body}</div>
-              {e.tags.length > 0 && (
-                <div className="forge-journal-entry__tags">
-                  {e.tags.map((t) => (
-                    <Link
-                      key={t}
-                      href={`/tags/${encodeURIComponent(t)}`}
-                      className="forge-journal-entry__tag"
-                      style={
-                        t === slug ? { color: 'var(--ink-0)', fontWeight: 500 } : undefined
-                      }
-                    >
-                      #{t}
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </article>
-          ))}
-        </div>
+        <JournalEntryContextMenuProvider>
+          <div className="forge-journal" style={{ marginLeft: 0 }}>
+            {entries.map((e) => {
+              const isPinned = pinned.has(`journal_entry:${e.id}`);
+              return (
+                <JournalEntryRow
+                  key={e.id}
+                  id={e.id}
+                  target={{ id: e.id, isPinned }}
+                  className="forge-journal-entry"
+                >
+                  <div className="forge-journal-entry__date">
+                    {prettyDate(e.written_at)}
+                    <span className="weekday">{weekday(e.written_at)}</span>
+                    <span className="forge-journal-entry__date-actions">
+                      <DeleteEntryButton id={e.id} />
+                    </span>
+                  </div>
+                  <div className="forge-journal-entry__body">{e.body}</div>
+                  {e.tags.length > 0 && (
+                    <div className="forge-journal-entry__tags">
+                      {e.tags.map((t) => (
+                        <Link
+                          key={t}
+                          href={`/tags/${encodeURIComponent(t)}`}
+                          className="forge-journal-entry__tag"
+                          style={
+                            t === slug
+                              ? { color: 'var(--ink-0)', fontWeight: 500 }
+                              : undefined
+                          }
+                        >
+                          #{t}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </JournalEntryRow>
+              );
+            })}
+          </div>
+        </JournalEntryContextMenuProvider>
       )}
     </div>
   );

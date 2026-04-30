@@ -5,6 +5,11 @@ import { createClient } from '@/lib/supabase/server';
 import { listThreads } from '@/lib/db/threads';
 import { pinnedSetForOwner } from '@/lib/db/pins';
 import { PinButton } from '@/components/projects/PinButton';
+import {
+  ThreadContextMenuProvider,
+  ThreadRow,
+  type ThreadStatus,
+} from '@/components/threads/ThreadContextMenu';
 import { CAPTURE_KINDS, type CaptureKind } from '@/lib/capture/kinds';
 
 type SearchParams = Promise<{ kind?: string }>;
@@ -82,6 +87,7 @@ export default async function ThreadsPage({ searchParams }: { searchParams: Sear
           </div>
         </div>
       ) : (
+        <ThreadContextMenuProvider>
         <div className="forge-list-card">
           {threads.map((t) => {
             const title = titleByCaptureId.get(t.capture_id) ?? '(untitled)';
@@ -89,7 +95,16 @@ export default async function ThreadsPage({ searchParams }: { searchParams: Sear
             const totalSections = t.sections.length;
             const isPinned = pinned.has(`thread:${t.id}`);
             return (
-              <div key={t.id} className="forge-list-row" style={{ gap: 12 }}>
+              <ThreadRow
+                key={t.id}
+                target={{
+                  id: t.id,
+                  status: t.status as ThreadStatus,
+                  isPinned,
+                }}
+                className="forge-list-row"
+                style={{ gap: 12 }}
+              >
                 <Link
                   href={`/threads/${t.id}`}
                   style={{
@@ -118,10 +133,11 @@ export default async function ThreadsPage({ searchParams }: { searchParams: Sear
                   <span className={`forge-pill forge-pill--${t.kind}`}>{t.kind}</span>
                   <PinButton sourceKind="thread" sourceId={t.id} initiallyPinned={isPinned} />
                 </div>
-              </div>
+              </ThreadRow>
             );
           })}
         </div>
+        </ThreadContextMenuProvider>
       )}
     </div>
   );

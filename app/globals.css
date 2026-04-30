@@ -1192,7 +1192,18 @@ html, body {
   font-family: var(--sans);
 }
 .forge-context-menu__item:hover { background: var(--bg-2); color: var(--ink-0); }
+.forge-context-menu__item:disabled {
+  opacity: 0.5; cursor: not-allowed;
+}
+.forge-context-menu__item:disabled:hover {
+  background: none; color: var(--ink-1);
+}
 .forge-context-menu__item[data-primary="true"]:hover { color: var(--ember); }
+.forge-context-menu__item[data-destructive="true"] { color: var(--hot, #b94747); }
+.forge-context-menu__item[data-destructive="true"]:hover {
+  background: color-mix(in oklab, var(--hot, #b94747) 8%, var(--bg-2));
+  color: var(--hot, #b94747);
+}
 .forge-context-menu__sep {
   height: 1px;
   background: var(--line-soft);
