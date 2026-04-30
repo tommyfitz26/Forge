@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { getThreadByCaptureId } from '@/lib/db/threads';
 import { StateControls } from './StateControls';
 import { ResearchPanel } from './ResearchPanel';
 import { DevelopPanel } from './DevelopPanel';
@@ -118,6 +119,10 @@ export default async function CaptureDetail({
       }),
   );
 
+  // Phase 4.3.3: load existing thread (if any) so the Start/Open thread
+  // button can switch labels and link directly.
+  const existingThread = await getThreadByCaptureId(capture.id);
+
   return (
     <div className="forge-detail">
       <Link href="/stream" className="forge-detail__back">
@@ -220,6 +225,7 @@ export default async function CaptureDetail({
           title={capture.title}
           isProject={Boolean((capture as { is_project?: boolean }).is_project)}
           projectId={(capture as { project_id?: string | null }).project_id ?? null}
+          threadId={existingThread?.id ?? null}
         />
       </div>
     </div>

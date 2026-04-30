@@ -2,11 +2,12 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, AlignLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import type { CaptureKind, CaptureState } from '@/lib/capture/kinds';
 import { PromoteToProjectModal } from '@/components/projects/PromoteToProjectModal';
+import { createThread } from '@/app/(app)/threads/actions';
 import {
   archiveCapture,
   unarchiveCapture,
@@ -15,6 +16,7 @@ import {
 
 // Phase 4.3.2 — "Make this a project" button. Idempotent: if the capture is
 // already a project, the button becomes a link to the existing project.
+// Phase 4.3.3 — "Start thread" / "Open thread" button.
 
 export function StateControls({
   id,
@@ -23,6 +25,7 @@ export function StateControls({
   title,
   isProject,
   projectId,
+  threadId,
 }: {
   id: string;
   state: CaptureState;
@@ -30,6 +33,7 @@ export function StateControls({
   title: string;
   isProject: boolean;
   projectId: string | null;
+  threadId: string | null;
 }) {
   const [isPending, startTransition] = useTransition();
   const [showArchive, setShowArchive] = useState(false);
@@ -97,6 +101,29 @@ export function StateControls({
             <ArrowUpRight className="h-4 w-4" />
             Make this a project
           </Button>
+        )}
+        {threadId ? (
+          <Link
+            href={`/threads/${threadId}`}
+            className="forge-btn"
+            style={{ textDecoration: 'none' }}
+          >
+            <AlignLeft size={14} /> Open thread
+          </Link>
+        ) : (
+          <form
+            action={(fd) => {
+              fd.set('capture_id', id);
+              startTransition(async () => {
+                await createThread(fd);
+              });
+            }}
+          >
+            <Button type="submit" variant="outline" disabled={isPending}>
+              <AlignLeft className="h-4 w-4" />
+              Start thread
+            </Button>
+          </form>
         )}
         <Button
           variant="outline"

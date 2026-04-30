@@ -7,6 +7,7 @@ import { Sidebar, type SidebarProject } from '@/components/layout/Sidebar';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { AppShell } from '@/components/layout/AppShell';
 import { listProjects, projectCounts } from '@/lib/db/projects';
+import { threadCounts } from '@/lib/db/threads';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -19,9 +20,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // Phase 4.3.1: Sidebar shows the user's active projects under Workshop.
   // Limited to 8 to keep the rail tidy; "All projects" link expands.
-  const [activeProjects, counts] = await Promise.all([
+  // Phase 4.3.3: Threads counts feed the inspector.
+  const [activeProjects, counts, threads] = await Promise.all([
     listProjects({ status: 'active', limit: 8 }),
     projectCounts(),
+    threadCounts(),
   ]);
   const projectsForSidebar: SidebarProject[] = activeProjects.map((p) => ({
     id: p.id,
@@ -40,6 +43,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           wrapped: counts.wrapped,
           paused: counts.paused,
           total: counts.total,
+        },
+        threads: {
+          total: threads.total,
+          in_progress: threads.in_progress,
+          complete: threads.complete,
+          archived: threads.archived,
+          byKind: threads.byKind,
         },
       }}
     >
