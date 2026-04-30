@@ -2942,3 +2942,33 @@ html, body {
   color: var(--ink-2);
 }
 
+.forge-settings__export-counts {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-1);
+  overflow: hidden;
+  margin: 14px 0 18px;
+}
+.forge-settings__export-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 9px 14px;
+  font-family: var(--serif);
+  font-size: 14px;
+  color: var(--ink-1);
+  border-bottom: 1px solid var(--line);
+}
+.forge-settings__export-row:last-child { border-bottom: none; }
+.forge-settings__export-row--total {
+  background: var(--bg-2);
+  font-weight: 500;
+}
+.forge-settings__export-count {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+  color: var(--ink-1);
+}
+.forge-settings__export-actions {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+}
+
