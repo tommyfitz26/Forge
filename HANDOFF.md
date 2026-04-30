@@ -77,64 +77,62 @@
 | 4.3.2 | Promote-from-capture flow: `promoteToProject` server action, `PromoteToProjectModal`, "Make this a project" button on `/capture/[id]`, right-click context menu on Stream rows, project overview shows seed capture + filed captures. | ✅ Merged (PR #27, commit `4f02d5c`). |
 | 4.3.3 | `threads` table with kind-aware section templates (idea: 5, problem: 4, observation: 3, research: 3 sections). `/threads` list + detail + `ThreadSectionEditor` (save-on-blur), "Start thread" / "Open thread" buttons on `/capture/[id]`, inspector with thread counts by kind/status. | ✅ Merged (PR #28, commit `7b6a204`). |
 | 4.3.4 | `journal_entries` + `tags` (auto-created on first use) + `pins` (polymorphic across capture/project/thread/journal_entry). `/journal` composer + chronological list, `/tags/[slug]` filter, `/top-of-mind` aggregator. Pin buttons across all surfaces. Sidebar shows real tag list. | ✅ Merged (PR #29, commit `644a8c4`). |
-| 4.3.5 | `intentions` (one per owner+day, upsert) + `streak_days` (forward-compat) + `content_versions` (snapshot on every thread + journal save). Today's focus card client island with ⌘I shortcut. `computeStreakSummary` reads captures + intentions + journal + capture_events across 90-day window. Sidebar Practice card shows real day-streak + 28-day dot grid. Today inspector shows focus-set / day-streak / 90-day best. Today page now shows real focus card + on-the-bench projects + recent captures + recent journal pages. | ✅ Ready to merge — branch `feat/phase-4.3.5-intentions-streak-versions`. Migration applied 2026-04-30. Cron registered (see below). |
+| 4.3.5 | `intentions` (one per owner+day, upsert) + `streak_days` (forward-compat) + `content_versions` (snapshot on every thread + journal save). Today's focus card client island with ⌘I shortcut. `computeStreakSummary` reads captures + intentions + journal + capture_events across 90-day window. Sidebar Practice card shows real day-streak + 28-day dot grid. Today inspector shows focus-set / day-streak / 90-day best. Today page shows real focus card + on-the-bench projects + recent captures + recent journal pages. | ✅ Merged (PR #30, commit `4e6181a`). |
 | 4.3.5 cron | Register `morning-focus-nudge` schedule in Upstash | ✅ Registered 2026-04-30 (`0 9 * * *` America/New_York). |
+| 4.3.6 | Refactor ResearchPanel + DevelopPanel + RetryResearchButton + NudgeBanner + StateControls to forge tokens (drop Tailwind dark-mode + shadcn `Button`). Adds `forge-btn--ghost` / `forge-btn--danger` modifiers. New `forge-research__*` / `forge-develop__*` / `forge-nudge-banner__*` / `forge-archive-form__*` CSS blocks. | ✅ Merged (PR #31, commit `ce18050`). |
+| 4.4 | `lib/db/this-week.ts` Mon-anchored week aggregator. `/this-week` real 7-cell day grid: per-day captures (kind-colored dots), today's-focus pill, journal pen markers, future-day dim, footer kind summary. `?week=YYYY-MM-DD` navigation (◀ / Today / ▶). Inspector shows week aggregates + by-kind. | ✅ Merged (PR #32, commit `07bf7b2`). |
+| 4.5 | `/scraps` real list (raw, unfiled captures, reuses StreamRows) + `/trash` unified soft-deleted view across journal_entries / threads / projects with per-item Restore + Delete-forever (two-click confirm). Server actions for untrash/purge/trashThread/trashProject. Inline `DeleteEntryButton` on /journal + /tags/[slug]. Inspector counts for both. | ✅ Merged (PR #33, commit `7947c4b`). |
+| 4.6 | Generic `<ContextMenu>` primitive (position + viewport clamp + dismiss). Per-surface menus: `ProjectContextMenu` (/workshop), `ThreadContextMenu` (/threads), `JournalEntryContextMenu` (/journal + /tags/[slug]), `PinnedCardContextMenu` (/top-of-mind). `/kinds/[kind]` ported to `StreamRows` so it picks up the existing capture menu. `data-destructive` styling on menu items in --hot. | ✅ Merged (PR #34, commit `64584b3`). |
+| **Phase 4** | **Redesign fully shipped — visual shell, capture composer, projects, threads, journal, tags, pins, today's focus, day streak, this-week, scraps/trash, right-click menus across every list surface** | **✅ Shipped 2026-04-30** |
 
 ---
 
 ## Next session — what to work on
 
-**Phases 1, 2, 3 are fully shipped.** v1's daily loop (capture → research → nudge → develop-export → weekly review) is live end-to-end on `forge.mom`. **Five crons** LIVE in Upstash (morning + evening nudges, Sunday weekly review, hourly research-recovery, **morning focus nudge** as of 2026-04-30). Sentry observability is wired with sourcemap upload, all keys pasted in chat history have been rotated.
+**Phases 1, 2, 3, 4 are fully shipped.** v1's daily loop (capture → research → nudge → develop-export → weekly review) is live end-to-end on `forge.mom`, plus the entire redesign — visual shell, capture composer, projects, threads, journal, tags, pins, today's focus, day streak, this-week timeline, scraps + trash, right-click context menus across every list surface.
 
-**Phase 4 (redesign) is well underway.** 4.1 + 4.2 + 4.3.1 + 4.3.2 + 4.3.3 + 4.3.4 are merged on main; 4.3.5 (intentions + streak + content_versions + morning focus nudge cron) is ready to merge after Tommy reviews the diff. The visual shell, new routes, capture composer, projects, threads, journal, tags, pins, today's focus, day streak, content versioning — all live. The redesign is approximately **80% of the way through Phase 4**.
+**Five crons** LIVE in Upstash (morning + evening nudges, Sunday weekly review, hourly research-recovery, morning focus nudge). Sentry observability is wired with sourcemap upload, all keys pasted in chat history have been rotated.
 
-**Remaining Phase 4 slices** (post-4.3.5 merge):
+**Phase 5 is the next menu.** It's a grab-bag of polish + remaining v1 items, intentionally bite-sized so Tommy can pick what he actually wants to ship next based on real soak. Items are listed below. If a session opens before Tommy signals what to start, ask — don't guess.
 
-- **4.3.6 — DevelopPanel + ResearchPanel internals refactor** (bundled with 4.3 polish per Tommy's earlier instruction). The `/capture/[id]` panels are restyled but their internals haven't been refreshed against the redesign's component vocabulary. Scope: extract panel components, align with `forge-section` / `forge-card` patterns, adjust copy. ~1 PR.
-- **4.4 — `/this-week` real data** (currently a route placeholder): aggregates captures + intentions + journal entries by day across the active week. Calendar sync (Google) is still Phase 5; this is just the in-app side.
-- **4.5 — `/scraps` + `/trash` real data** (currently route placeholders): scraps = captures still in `raw` state and not yet anchored to a project; trash = soft-deleted items with the 30-day window enforced.
-- **4.6 — Right-click context menus on more surfaces** (currently Stream + project cards have it; threads / journal entries / pinned cards don't yet).
-- **4.7 — AI link suggestion on save** (per SPEC §13) — after thread / journal save, propose links via the existing `links` table with `kind='inferred'`. User accepts or skips. Phase 5 item, not strictly Phase 4 — punt unless Tommy raises it.
-
-After Phase 4 wraps, **Phase 5** (parked items list below) becomes the menu.
+**Soak time is also a valid path.** Phase 4 just landed. There's a defensible case for letting Tommy *use* the redesign for a couple of weeks before committing to Phase 5 work — what he hits in practice will be more informative than the punch list below.
 
 ### Already covered (don't worry about it)
 
 - **Sunday 2026-05-10 weekly-review cron verification** — a one-time scheduled remote agent fires Monday 2026-05-11 09:00 ET (routine `trig_01Er6yV4ksG4uNfRf8YP5829`, manage at https://claude.ai/code/routines) to search Gmail for the first organic weekly-review email and report `CLEAN` / `PARTIAL` / `FAILED`. Note: the **2026-05-03 cron will fire but produce no email** because `weekOfFor(Sun 5/3)` = `2026-04-27`, which is the smoke-test row and already at `status='sent'` — Stage 1 short-circuits with `already_sent`. The first organic full-chain fire is 5/10.
 
-### Phase 4 — Redesign (in progress)
+### Phase 4 — Redesign (✅ Shipped 2026-04-30)
 
-Reference doc: `UI-REDESIGN-SPEC.md` at the repo root. Click-through prototype: `forge-hearth.html`. Both should stay current with shipped work — review periodically and prune.
+Reference doc: `UI-REDESIGN-SPEC.md` at the repo root. Click-through prototype: `forge-hearth.html`. Both reflect the shipped state.
 
-**What's left** is enumerated above. Tommy explicitly asked to bundle the panels refactor into 4.3 polish (4.3.6) after 4.3.5 lands; do that first.
+Six PRs landed end-to-end: 4.1 (visual shell + new routes) → 4.2 (capture composer) → 4.3.1–4.3.5 (projects, promote-to-project, threads, journal/tags/pins, intentions/streak/content-versions) → 4.3.6 (panels refactor) → 4.4 (this-week timeline) → 4.5 (scraps + trash) → 4.6 (right-click context menus on every list surface). See the status table above for per-slice scope + commit pointers.
 
-### Phase 5 — Polish + remaining v1 items (parked until Phase 4 ships)
+### Phase 5 — Polish + remaining v1 items
 
-Previously called "Phase 4" pre-renumber. Bite-sized standalone items that can be picked up after the redesign settles.
+Bite-sized standalone items, prioritized roughly by leverage. Pick whatever Tommy raises first; default order shown.
 
-**Small polish:**
-- **Detail-page polling for `research_status`** (~20–30 LOC, see end-of-file Enhancements section). Right now `/capture/[id]` doesn't auto-update during the 60–120s research run; manual refresh required. Note: the redesign may obviate this entirely if it changes detail-page architecture.
-- **Real PWA icons** — current `public/icons/{icon-192, icon-512, apple-touch-icon}.png` are programmatic dark-square placeholders. Should ship before any wider use of the app, regardless of redesign.
+**Quick wins (each is one PR, no design conversation needed):**
+- **Real PWA icons** — current `public/icons/{icon-192, icon-512, apple-touch-icon}.png` are programmatic dark-square placeholders. Should ship before any wider use of the app.
+- **Detail-page polling for `research_status`** (~20–30 LOC). Right now `/capture/[id]` doesn't auto-update during the 60–120s research run; manual refresh required.
 - **Migrate research + nudge routes to `lib/jobs/job-runs.ts`** — slice 3 of Phase 2c extracted Layer B claim helpers; the older two routes still inline their own copies (~50 LOC dedup each, pure cleanup).
+- **Drop `untypedSupabase()` escape hatch** — `lib/db/{projects,threads,journal,tags,pins,intentions,streak,content-versions,scraps,trash,this-week}.ts` and several action files all cast Supabase client to `Promise<any>` because `lib/types/db.ts` lags new tables. Run `pnpm db:types` and incrementally remove the casts. Pure cleanup; runtime unchanged.
+- **TZ-correct day bucketing** — `lib/db/streak.ts`, `lib/db/this-week.ts`, and `lib/db/journal.ts` slice ISO timestamps in UTC, so a late-evening ET capture lands on the next day. One unified slice that adopts `Intl.DateTimeFormat('en-CA', { timeZone: env.APP_SCHEDULE_TZ })` everywhere.
 - **Remove `/sentry-test` route** if you decide you don't want the permanent smoke surface in prod (currently kept; auth-gated to owner only, ~60 LOC).
 
-**Substantive (need design conversation first):**
-- **Manual linking UI** (§4.7) — schema + UX both need talking through.
+**Substantive (design conversation first):**
+- **Manual linking UI** (§4.7) — schema + UX both need talking through. The `links` table already exists (Phase 0); pattern_detection writes inferred links. Need the manual-add + accept/reject flow.
 - **`merge_captures` task** — gated on manual linking shipping first.
 - **`/settings/costs`, `/settings/health`, `/settings/jobs` dashboards** (§4.9 / §4.10).
 - **Export to JSON** (§4.11).
-- **Dashboard quality-of-life** — Serious Ideas filter, search.
-
-### Soak time (still a valid path)
-
-v1 just shipped end-to-end. There's a defensible case for letting Tommy *use* the app for a few weeks between major chunks — capture daily, watch the weekly digest, see what actually annoys him in practice. The Phase 4 redesign brief will likely be informed by that soak. SPEC §4.10 explicitly defers "structured expansion sections per capture" on this logic; treat the same skepticism toward speculative Phase 5 work.
+- **AI link suggestion on save** (UI-REDESIGN-SPEC §13) — after thread / journal save, propose links via `links` table with `kind='inferred'`. User accepts or skips. Per-save Haiku call, scoped to one piece of content.
+- **Library / Atlas / Map** (UI-REDESIGN-SPEC §4) — three knowledge-layer surfaces deferred from Phase 4. Each is a substantial chunk; do them only if Tommy decides he wants them after soak.
+- **Dashboard quality-of-life** — search, advanced filters.
 
 ### Don't do without explicit ask
 
-- **Anything in Phase 4** before Tommy delivers the design brief.
 - Anything that touches the develop-prompt export (§4.6) — Tommy ran it through one smoke test, the wording is intentional. Don't refactor for clarity.
 - Anything cron-related on `forge.mom` (registering, modifying, disabling) without explicit confirmation. Five schedules are live (morning + evening nudges, Sunday weekly review, hourly research-recovery, morning focus nudge) and Tommy's habits depend on them.
-- Phase 5 manual-linking UI / `merge_captures` task / settings dashboards — wait for the redesign to settle before pre-committing to UX shapes.
+- Phase 5 manual-linking UI / `merge_captures` task / settings dashboards / Library-Atlas-Map — wait for Tommy's call. Don't pre-commit to UX shapes; soak-driven priorities will likely shift the order.
 
 ---
 
@@ -337,11 +335,7 @@ Final smoke test passed end-to-end: idea capture → auto-enqueue → Sonnet+web
 
 ### Immediate
 
-Phase 4.3.5 is ready to merge (branch `feat/phase-4.3.5-intentions-streak-versions`). After merging, the next slice is 4.3.6 (DevelopPanel + ResearchPanel internals refactor — Tommy explicitly asked to bundle this into 4.3 polish).
-
-**Type cleanup debt** — `lib/db/{projects,threads,journal,tags,pins,intentions,streak,content-versions}.ts` and several action files all use an `untypedSupabase()` `Promise<any>` escape hatch because the auto-generated `lib/types/db.ts` lags new tables. Run `pnpm db:types` after merging 4.3.5 and incrementally drop the casts. Pure cleanup; runtime unchanged.
-
-**Cron health check** — verify `morning-focus-nudge` fires at 9am ET tomorrow (2026-05-01) and either pushes or logs `all_lit`. `select * from job_runs where job_name='morning-focus-nudge' order by started_at desc limit 5;` after that hour.
+Nothing immediate. Phase 4 (redesign) shipped 2026-04-30. Ask Tommy what he wants to pick up next from the Phase 5 menu, or whether he wants to soak first.
 
 ### Tracked debt (parked for Phase 5)
 
@@ -601,8 +595,8 @@ git switch main && git pull
 ## How to use this with a new session
 
 1. Open a fresh Claude Code session in `/Users/tommyfitz/Forge`.
-2. Tell it: *"Read HANDOFF.md, UI-REDESIGN-SPEC.md, and the memory directory at `~/.claude/projects/-Users-tommyfitz-Forge/memory/`. Phases 1, 2, 3 are shipped. Phase 4 (redesign) is in flight — 4.1, 4.2, 4.3.1–4.3.5 are merged or ready to merge. Pick up at the next slice (probably 4.3.6 panels refactor unless I say otherwise)."*
-3. The session should report: all of Phase 1 + 2 + 3 shipped and verified on `forge.mom`. **Five** Upstash cron schedules LIVE: morning + evening nudges, morning focus nudge, Sunday weekly review, hourly research-recovery. Sentry observability live with sourcemap upload. All keys rotated. **Phase 4 in flight**: 4.1 (visual shell + new routes), 4.2 (capture composer), 4.3.1–4.3.4 (projects + promote flow + threads + journal/tags/pins) all merged; 4.3.5 (intentions + streak + content_versions + morning focus cron) ready to merge. Remaining: 4.3.6 (panels refactor), 4.4 (`/this-week`), 4.5 (`/scraps` + `/trash`), 4.6 (more context menus). Phase 5 = polish/dashboards/manual-linking parked until Phase 4 wraps.
+2. Tell it: *"Read HANDOFF.md, UI-REDESIGN-SPEC.md, and the memory directory at `~/.claude/projects/-Users-tommyfitz-Forge/memory/`. Phases 1–4 are shipped. Phase 5 is the menu — ask me what to start."*
+3. The session should report: Phases 1 + 2 + 3 + 4 shipped and verified on `forge.mom`. Five Upstash cron schedules LIVE: morning + evening nudges, morning focus nudge, Sunday weekly review, hourly research-recovery. Sentry observability live with sourcemap upload. All keys rotated. Phase 5 menu (manual linking, settings dashboards, JSON export, PWA icons, type cleanup, TZ-correct bucketing, etc.) parked until Tommy picks one — soak is also a valid path.
 
 ---
 
