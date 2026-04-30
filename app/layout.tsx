@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { readTheme, DEFAULT_THEME } from '@/lib/theme';
 
 export const metadata: Metadata = {
   title: 'Forge',
@@ -21,12 +22,15 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0a0a0a',
+  themeColor: '#0e0f12',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const theme = await readTheme();
+  // data-theme is only set when non-default to keep markup minimal.
+  const themeAttr = theme === DEFAULT_THEME ? undefined : theme;
   return (
-    <html lang="en">
+    <html lang="en" data-theme={themeAttr}>
       <body>{children}</body>
     </html>
   );
