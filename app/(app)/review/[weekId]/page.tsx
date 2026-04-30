@@ -3,7 +3,6 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { createClient } from '@/lib/supabase/server';
-import { KindBadge } from '@/components/ui/badge';
 import { renderMarkdownToHtml } from '@/lib/email/markdown';
 import type { CaptureKind } from '@/lib/capture/kinds';
 
@@ -16,6 +15,10 @@ import type { CaptureKind } from '@/lib/capture/kinds';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Params = Promise<{ weekId: string }>;
+
+function kindPillClass(kind: CaptureKind): string {
+  return `forge-pill forge-pill--${kind}`;
+}
 
 export default async function WeeklyReviewPage({ params }: { params: Params }) {
   const { weekId } = await params;
@@ -51,64 +54,68 @@ export default async function WeeklyReviewPage({ params }: { params: Params }) {
   const html = row.email_content_md ? renderMarkdownToHtml(row.email_content_md) : null;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
-        >
-          <ArrowLeft className="h-3 w-3" />
-          Dashboard
-        </Link>
-      </div>
+    <div className="forge-detail">
+      <Link href="/today" className="forge-detail__back">
+        <ArrowLeft size={12} />
+        Today
+      </Link>
 
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Week of {format(new Date(`${row.week_of}T00:00:00`), 'MMMM d, yyyy')}
-        </h1>
-        <p className="text-xs text-neutral-500">
+      <div className="forge-detail__meta">
+        <span className="forge-pill">weekly review</span>
+        <span>
           {row.status === 'sent' && row.sent_at
             ? `Sent ${format(new Date(row.sent_at), 'EEE MMM d, h:mm a')}`
             : row.status === 'composing'
               ? 'Drafting…'
               : 'Ready to send.'}
-        </p>
-      </header>
+        </span>
+      </div>
+
+      <h1 className="forge-detail__title">
+        Week of {format(new Date(`${row.week_of}T00:00:00`), 'MMMM d, yyyy')}
+      </h1>
 
       {html ? (
         <article
-          className="prose prose-neutral max-w-none rounded-md border border-neutral-200 bg-white p-5 text-sm leading-relaxed dark:prose-invert dark:border-neutral-800 dark:bg-neutral-950"
+          className="forge-detail__panel forge-prose"
           // Markdown is generated server-side from the model's structured
           // output by composeWeeklyReviewEmail; no untrusted HTML enters here.
           dangerouslySetInnerHTML={{ __html: html }}
         />
       ) : (
-        <div className="rounded-md border border-dashed border-neutral-300 p-4 text-sm text-neutral-500 dark:border-neutral-700">
-          Email content is still being composed. Refresh in a moment.
+        <div
+          className="forge-empty rounded-xl"
+          style={{ border: '1px dashed var(--line)', background: 'var(--bg-2)' }}
+        >
+          <div className="forge-empty__msg">
+            Email content is still being composed. Refresh in a moment.
+          </div>
         </div>
       )}
 
       {captures.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+        <section className="mt-6">
+          <h2
+            className="mb-3"
+            style={{ fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 500, color: 'var(--ink-0)' }}
+          >
             Open in Forge
           </h2>
-          <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
+          <div className="forge-list-card">
             {captures.map((c) => (
-              <li key={c.id} className="flex items-center justify-between gap-3 p-3">
-                <div className="flex min-w-0 items-center gap-2">
-                  <KindBadge kind={c.kind as CaptureKind} />
-                  <span className="truncate text-sm">{c.title}</span>
+              <Link key={c.id} href={`/capture/${c.id}`} className="forge-list-row">
+                <div className="forge-list-row__icon">
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 14 }}>≡</span>
                 </div>
-                <Link
-                  href={`/capture/${c.id}`}
-                  className="text-xs text-neutral-500 underline-offset-2 hover:text-neutral-700 hover:underline dark:hover:text-neutral-300"
-                >
-                  Develop →
-                </Link>
-              </li>
+                <div className="forge-list-row__body">
+                  <div className="forge-list-row__title">{c.title}</div>
+                </div>
+                <div className="forge-list-row__right">
+                  <span className={kindPillClass(c.kind as CaptureKind)}>{c.kind}</span>
+                </div>
+              </Link>
             ))}
-          </ul>
+          </div>
         </section>
       )}
     </div>
