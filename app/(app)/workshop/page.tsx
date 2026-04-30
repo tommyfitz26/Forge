@@ -1,12 +1,14 @@
 import Link from 'next/link';
 import { Hammer } from 'lucide-react';
 import { listProjects } from '@/lib/db/projects';
+import { pinnedSetForOwner } from '@/lib/db/pins';
 import { gradientKeyForKind, type CoverGradientKey } from '@/lib/types/projects';
 import { ProjectCover } from '@/components/projects/ProjectCover';
 import { NewProjectButton } from '@/components/projects/WorkshopHeader';
+import { PinButton } from '@/components/projects/PinButton';
 
 export default async function WorkshopPage() {
-  const projects = await listProjects({});
+  const [projects, pinned] = await Promise.all([listProjects({}), pinnedSetForOwner()]);
 
   return (
     <div className="space-y-6">
@@ -61,32 +63,38 @@ export default async function WorkshopPage() {
                   : p.status === 'paused'
                     ? 'Paused'
                     : 'Archived';
+            const isPinned = pinned.has(`project:${p.id}`);
             return (
-              <Link
+              <div
                 key={p.id}
-                href={`/projects/${p.id}`}
                 className="forge-proj"
                 data-featured={featured ? 'true' : 'false'}
+                style={{ position: 'relative' }}
               >
-                <ProjectCover gradientKey={gradient} stage={statusLabel} />
-                <div className="forge-proj__body">
-                  <h3 className="forge-proj__title">
-                    {featured && <span className="forge-proj__title-pin">●</span>}
-                    {p.title}
-                  </h3>
-                  {p.deck && <div className="forge-proj__deck">{p.deck}</div>}
-                  <div className="forge-proj__meta">
-                    {p.kind_seed && <span>#{p.kind_seed}</span>}
-                    {p.kind_seed && <span className="dot" />}
-                    <span>opened {new Date(p.opened_at).toLocaleDateString()}</span>
-                  </div>
-                  {typeof p.progress_pct === 'number' && (
-                    <div className={barClass}>
-                      <div style={{ width: `${Math.max(0, Math.min(100, p.progress_pct))}%` }} />
+                <Link href={`/projects/${p.id}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
+                  <ProjectCover gradientKey={gradient} stage={statusLabel} />
+                  <div className="forge-proj__body">
+                    <h3 className="forge-proj__title">
+                      {featured && <span className="forge-proj__title-pin">●</span>}
+                      {p.title}
+                    </h3>
+                    {p.deck && <div className="forge-proj__deck">{p.deck}</div>}
+                    <div className="forge-proj__meta">
+                      {p.kind_seed && <span>#{p.kind_seed}</span>}
+                      {p.kind_seed && <span className="dot" />}
+                      <span>opened {new Date(p.opened_at).toLocaleDateString()}</span>
                     </div>
-                  )}
+                    {typeof p.progress_pct === 'number' && (
+                      <div className={barClass}>
+                        <div style={{ width: `${Math.max(0, Math.min(100, p.progress_pct))}%` }} />
+                      </div>
+                    )}
+                  </div>
+                </Link>
+                <div style={{ position: 'absolute', top: 8, right: 8 }}>
+                  <PinButton sourceKind="project" sourceId={p.id} initiallyPinned={isPinned} />
                 </div>
-              </Link>
+              </div>
             );
           })}
         </div>

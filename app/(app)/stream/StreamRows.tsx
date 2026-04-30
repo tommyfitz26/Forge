@@ -18,6 +18,7 @@ export type StreamRowData = {
   created_at: string;
   is_project: boolean;
   project_id: string | null;
+  is_pinned: boolean;
 };
 
 function kindPillClass(kind: CaptureKind): string {
@@ -55,6 +56,7 @@ export function StreamRows({ captures }: { captures: StreamRowData[] }) {
               state: c.state,
               isProject: c.is_project,
               projectId: c.project_id,
+              isPinned: c.is_pinned,
             }}
             className="forge-list-row"
             onClick={() => router.push(`/capture/${c.id}`)}

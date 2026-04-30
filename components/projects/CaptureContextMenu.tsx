@@ -11,8 +11,9 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUpRight, Archive, ExternalLink } from 'lucide-react';
+import { ArrowUpRight, Archive, ExternalLink, Bookmark, BookmarkCheck } from 'lucide-react';
 import type { CaptureKind, CaptureState } from '@/lib/capture/kinds';
+import { togglePin } from '@/app/(app)/top-of-mind/actions';
 import { PromoteToProjectModal } from './PromoteToProjectModal';
 
 type Target = {
@@ -22,6 +23,7 @@ type Target = {
   state: CaptureState;
   isProject: boolean;
   projectId: string | null;
+  isPinned: boolean;
 };
 
 type MenuState = {
@@ -109,6 +111,28 @@ export function CaptureContextMenuProvider({ children }: { children: ReactNode }
               <ArrowUpRight size={14} /> Make this a project
             </button>
           )}
+
+          <button
+            type="button"
+            className="forge-context-menu__item"
+            onClick={() => {
+              const fd = new FormData();
+              fd.set('source_kind', 'capture');
+              fd.set('source_id', state.target.id);
+              void togglePin(fd);
+              close();
+            }}
+          >
+            {state.target.isPinned ? (
+              <>
+                <BookmarkCheck size={14} /> Unpin from Top of mind
+              </>
+            ) : (
+              <>
+                <Bookmark size={14} /> Pin to Top of mind
+              </>
+            )}
+          </button>
 
           <div className="forge-context-menu__sep" />
 

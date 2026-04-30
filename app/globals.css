@@ -1282,3 +1282,221 @@ html, body {
   color: var(--ink-3);
   margin-bottom: 10px;
 }
+
+/* ============================================================
+   JOURNAL — composer + entries
+   ============================================================ */
+.forge-journal {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.forge-journal-composer {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow-1);
+  margin-bottom: 28px;
+}
+.forge-journal-composer__label {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-3);
+  margin-bottom: 10px;
+}
+.forge-journal-composer textarea {
+  width: 100%;
+  min-height: 110px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink-1);
+  padding: 12px 14px;
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.6;
+  outline: none;
+  resize: vertical;
+}
+.forge-journal-composer textarea:focus {
+  border-color: var(--ember-soft);
+  box-shadow: 0 0 0 3px var(--ember-soft);
+}
+.forge-journal-composer textarea::placeholder {
+  color: var(--ink-3);
+  font-style: italic;
+}
+.forge-journal-composer__row {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.forge-journal-composer__tags {
+  flex: 1;
+  min-width: 180px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 7px 10px;
+  color: var(--ink-1);
+  font-family: var(--mono);
+  font-size: 12px;
+  outline: none;
+}
+.forge-journal-composer__tags::placeholder {
+  color: var(--ink-3);
+  font-style: italic;
+  font-family: var(--serif);
+  font-size: 13.5px;
+}
+.forge-journal-composer__date {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 7px 10px;
+  color: var(--ink-1);
+  font-family: var(--mono);
+  font-size: 12px;
+  outline: none;
+}
+.forge-journal-composer__submit {
+  background: var(--ember);
+  color: var(--check-ink);
+  border: none;
+  border-radius: 6px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--sans);
+}
+.forge-journal-composer__submit:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.forge-journal-month {
+  margin-bottom: 28px;
+}
+.forge-journal-month__head {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-3);
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.forge-journal-entry {
+  padding: 18px 0;
+  border-bottom: 1px dashed var(--line);
+  position: relative;
+}
+.forge-journal-entry:last-child { border-bottom: none; }
+.forge-journal-entry__date {
+  font-family: var(--serif);
+  color: var(--ember);
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  display: flex; align-items: baseline; gap: 10px;
+}
+.forge-journal-entry__date .weekday {
+  color: var(--ink-2);
+  font-style: italic;
+  font-size: 12.5px;
+  font-weight: 400;
+}
+.forge-journal-entry__date-actions {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 6px;
+}
+.forge-journal-entry__body {
+  font-family: var(--serif);
+  font-size: 15.5px;
+  color: var(--ink-1);
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+.forge-journal-entry__tags {
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.forge-journal-entry__tag {
+  color: var(--ember);
+  text-decoration: none;
+}
+.forge-journal-entry__tag:hover { color: var(--ember-dim); text-decoration: underline; }
+
+/* ============================================================
+   PIN BUTTON — small icon button used across surfaces
+   ============================================================ */
+.forge-pin-btn {
+  display: inline-grid; place-items: center;
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.forge-pin-btn:hover {
+  background: var(--bg-3);
+  color: var(--ember);
+  border-color: var(--line);
+}
+.forge-pin-btn[data-pinned="true"] { color: var(--ember); }
+.forge-pin-btn[data-pinned="true"]:hover { color: var(--ember-dim); }
+
+/* ============================================================
+   TOP OF MIND — pinned cards across types
+   ============================================================ */
+.forge-pinned-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.forge-pin-card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 18px;
+  box-shadow: var(--shadow-1);
+  display: flex; flex-direction: column;
+  gap: 6px;
+  position: relative;
+}
+.forge-pin-card a { color: inherit; text-decoration: none; }
+.forge-pin-card__kind {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ember);
+  margin-bottom: 4px;
+}
+.forge-pin-card__title {
+  font-family: var(--serif);
+  font-size: 17px;
+  color: var(--ink-0);
+  font-weight: 500;
+  margin: 0;
+}
+.forge-pin-card__preview {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.forge-pin-card__pinned-at {
+  margin-top: auto;
+  padding-top: 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-3);
+  display: flex; justify-content: space-between; align-items: center;
+}

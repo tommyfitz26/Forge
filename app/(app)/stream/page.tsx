@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { pinnedSetForOwner } from '@/lib/db/pins';
 import type { CaptureKind, CaptureState } from '@/lib/capture/kinds';
 import { StreamRows, type StreamRowData } from './StreamRows';
 
@@ -8,14 +9,17 @@ const RECENT_LIMIT = 50;
 
 export default async function StreamPage() {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from('captures')
-    // is_project + project_id are Phase 4.3.1 columns. Cast the result row
-    // since the generated db.ts hasn't picked them up yet.
-    .select('id, title, content, kind, state, created_at, is_project, project_id')
-    .neq('state', 'archived')
-    .order('created_at', { ascending: false })
-    .limit(RECENT_LIMIT);
+  const [{ data }, pinned] = await Promise.all([
+    supabase
+      .from('captures')
+      // is_project + project_id are Phase 4.3.1 columns. Cast the result row
+      // since the generated db.ts hasn't picked them up yet.
+      .select('id, title, content, kind, state, created_at, is_project, project_id')
+      .neq('state', 'archived')
+      .order('created_at', { ascending: false })
+      .limit(RECENT_LIMIT),
+    pinnedSetForOwner(),
+  ]);
 
   const captures: StreamRowData[] = (data ?? []).map((c) => {
     const row = c as typeof c & { is_project?: boolean; project_id?: string | null };
@@ -28,6 +32,7 @@ export default async function StreamPage() {
       created_at: row.created_at,
       is_project: Boolean(row.is_project),
       project_id: row.project_id ?? null,
+      is_pinned: pinned.has(`capture:${row.id}`),
     };
   });
 
