@@ -5,6 +5,8 @@ import { ArrowLeft, ScrollText, Sprout } from 'lucide-react';
 import { captureForProject, getProject } from '@/lib/db/projects';
 import { gradientCssForKey, gradientKeyForKind, type CoverGradientKey } from '@/lib/types/projects';
 import { ConnectionsPanel } from '@/components/links/ConnectionsPanel';
+import { SuggestionsPanel } from '@/components/links/SuggestionsPanel';
+import { PostSaveAutoRefresh } from '@/components/links/PostSaveAutoRefresh';
 import type { CaptureKind } from '@/lib/capture/kinds';
 
 type Params = Promise<{ id: string }>;
@@ -57,6 +59,7 @@ export default async function ProjectDetail({
 
   return (
     <div className="space-y-2">
+      <PostSaveAutoRefresh />
       <Link href="/workshop" className="forge-detail__back">
         <ArrowLeft size={12} />
         Workshop
@@ -209,6 +212,8 @@ export default async function ProjectDetail({
               Tasks land when intentions + per-project task lists arrive in 4.3.5.
             </p>
           </div>
+
+          <SuggestionsPanel source={{ kind: 'project', id: project.id }} />
 
           <ConnectionsPanel source={{ kind: 'project', id: project.id }} />
         </div>

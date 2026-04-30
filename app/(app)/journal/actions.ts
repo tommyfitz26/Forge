@@ -2,9 +2,11 @@
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 import { snapshotContentVersion } from '@/lib/db/content-versions';
+import { scheduleLinkSuggestions } from '@/lib/ai/run-suggest-links';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function untypedSupabase(): Promise<any> {
@@ -121,6 +123,9 @@ export async function createJournalEntry(formData: FormData): Promise<EntryResul
     body: parsed.data.body,
   });
 
+  // Phase 5.3 — schedule AI link suggestions for this just-created entry.
+  after(() => scheduleLinkSuggestions(user.id, 'journal_entry', data.id));
+
   revalidatePath('/journal');
   for (const t of tags) revalidatePath(`/tags/${t}`);
   return { ok: true, id: data.id };
@@ -174,6 +179,10 @@ export async function updateJournalEntry(
     sourceId: parsed.data.id,
     body: parsed.data.body,
   });
+
+  // Phase 5.3 — re-trigger AI link suggestions on edit (24h hash dedupe
+  // ensures we don't redo identical bodies).
+  after(() => scheduleLinkSuggestions(user.id, 'journal_entry', parsed.data.id));
 
   revalidatePath('/journal');
   for (const t of tags) revalidatePath(`/tags/${t}`);

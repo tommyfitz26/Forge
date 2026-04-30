@@ -5,6 +5,7 @@ import { ResearchSchema, RESEARCH_TOOL_INPUT_SCHEMA } from './research-schema';
 import { NudgeQuestionSchema } from './nudge-schema';
 import { WeeklySummarySchema } from './weekly-summary-schema';
 import { PatternDetectionSchema } from './pattern-detection-schema';
+import { SuggestLinksSchema } from './suggest-links-schema';
 
 // Title style per SPEC §4.2 rule 2: 4–8 words, Title Case, no trailing
 // punctuation. The prompt enforces style; Zod enforces structural sanity only.
@@ -116,6 +117,21 @@ export const TASKS = {
     promptFile: 'pattern_detection.md',
     outputSchema: PatternDetectionSchema,
     maxTokens: 1500,
+    temperature: 0.2,
+    pricing: { inputPer1M: 3, outputPer1M: 15 },
+  },
+  // Phase 5.3 — per-save link suggestion. Fires after capture create / thread
+  // section save / journal create. Sonnet 4.6 (per Tommy's call): the cross-
+  // content judgment about what genuinely connects is non-trivial and Haiku
+  // would over-eagerly link superficially-related items, eroding trust.
+  // Temperature 0.2 to match pattern_detection — we want fewer false
+  // positives over variety. JSON-text output (no terminal tool) — schema is
+  // small and the runner's JSON-retry path covers boundary cases.
+  suggest_links: {
+    model: 'claude-sonnet-4-6',
+    promptFile: 'suggest_links.md',
+    outputSchema: SuggestLinksSchema,
+    maxTokens: 800,
     temperature: 0.2,
     pricing: { inputPer1M: 3, outputPer1M: 15 },
   },

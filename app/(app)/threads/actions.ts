@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 import { CAPTURE_KINDS, type CaptureKind } from '@/lib/capture/kinds';
@@ -11,6 +12,7 @@ import {
   snapshotContentVersion,
   serializeThreadSections,
 } from '@/lib/db/content-versions';
+import { scheduleLinkSuggestions } from '@/lib/ai/run-suggest-links';
 
 /**
  * Untyped escape hatch — see lib/db/threads.ts. Drop after `pnpm db:types`.
@@ -187,6 +189,11 @@ export async function updateThreadSection(
     sourceId: thread.id,
     body: serializeThreadSections(next),
   });
+
+  // Phase 5.3 — schedule AI link suggestions to run after this response.
+  // 24h dedupe inside scheduleLinkSuggestions guards against re-firing on
+  // every blur if the body hasn't materially changed.
+  after(() => scheduleLinkSuggestions(user.id, 'thread', thread.id));
 
   revalidatePath(`/threads/${thread.id}`);
   return { ok: true };

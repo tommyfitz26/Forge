@@ -2571,3 +2571,78 @@ html, body {
   display: flex; align-items: center; gap: 8px; justify-content: flex-end;
 }
 
+/* ============================================================
+   AI LINK SUGGESTIONS — inline panel on detail pages (Phase 5.3)
+   ============================================================ */
+.forge-suggestions {
+  border: 1px solid color-mix(in oklab, var(--ember) 35%, var(--line));
+  background: linear-gradient(135deg, var(--ember-soft) 0%, transparent 70%), var(--bg-2);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-top: 18px;
+  box-shadow: var(--shadow-1);
+}
+.forge-suggestions__head {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ember);
+  margin-bottom: 10px;
+}
+.forge-suggestions__head-ico { color: var(--ember); }
+.forge-suggestions__list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.forge-suggestions__chip {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 12px 14px;
+  display: flex; flex-direction: column;
+  gap: 6px;
+  transition: opacity 0.18s ease;
+}
+.forge-suggestions__chip[data-pending="true"] { opacity: 0.55; }
+.forge-suggestions__chip-link {
+  display: flex; align-items: center; gap: 8px;
+  text-decoration: none;
+  color: var(--ink-1);
+  font-family: var(--serif);
+  font-size: 14.5px;
+  border-bottom: 1px solid transparent;
+  width: max-content;
+  max-width: 100%;
+}
+.forge-suggestions__chip-link:hover {
+  color: var(--ember);
+  border-bottom-color: var(--ember-soft);
+}
+.forge-suggestions__chip-ico { color: var(--ink-3); flex-shrink: 0; }
+.forge-suggestions__chip-title {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 500;
+}
+.forge-suggestions__chip-kind {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-3);
+  margin-left: auto;
+}
+.forge-suggestions__chip-reason {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  margin: 0;
+}
+.forge-suggestions__chip-actions {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 4px;
+}
+
