@@ -1,6 +1,10 @@
 import Link from 'next/link';
 import { JournalComposer } from '@/components/journal/JournalComposer';
 import { DeleteEntryButton } from '@/components/journal/DeleteEntryButton';
+import {
+  JournalEntryContextMenuProvider,
+  JournalEntryRow,
+} from '@/components/journal/JournalEntryContextMenu';
 import { PinButton } from '@/components/projects/PinButton';
 import { listJournalEntries } from '@/lib/db/journal';
 import { pinnedSetForOwner } from '@/lib/db/pins';
@@ -35,46 +39,53 @@ export default async function JournalPage() {
           </div>
         </div>
       ) : (
-        <div>
-          {grouped.map((g) => (
-            <section key={g.label} className="forge-journal-month">
-              <div className="forge-journal-month__head">{g.label}</div>
-              {g.entries.map((e) => {
-                const isPinned = pinned.has(`journal_entry:${e.id}`);
-                return (
-                  <article key={e.id} id={e.id} className="forge-journal-entry">
-                    <div className="forge-journal-entry__date">
-                      {prettyDate(e.written_at)}
-                      <span className="weekday">{weekday(e.written_at)}</span>
-                      <span className="forge-journal-entry__date-actions">
-                        <PinButton
-                          sourceKind="journal_entry"
-                          sourceId={e.id}
-                          initiallyPinned={isPinned}
-                        />
-                        <DeleteEntryButton id={e.id} />
-                      </span>
-                    </div>
-                    <div className="forge-journal-entry__body">{e.body}</div>
-                    {e.tags.length > 0 && (
-                      <div className="forge-journal-entry__tags">
-                        {e.tags.map((t) => (
-                          <Link
-                            key={t}
-                            href={`/tags/${encodeURIComponent(t)}`}
-                            className="forge-journal-entry__tag"
-                          >
-                            #{t}
-                          </Link>
-                        ))}
+        <JournalEntryContextMenuProvider>
+          <div>
+            {grouped.map((g) => (
+              <section key={g.label} className="forge-journal-month">
+                <div className="forge-journal-month__head">{g.label}</div>
+                {g.entries.map((e) => {
+                  const isPinned = pinned.has(`journal_entry:${e.id}`);
+                  return (
+                    <JournalEntryRow
+                      key={e.id}
+                      id={e.id}
+                      target={{ id: e.id, isPinned }}
+                      className="forge-journal-entry"
+                    >
+                      <div className="forge-journal-entry__date">
+                        {prettyDate(e.written_at)}
+                        <span className="weekday">{weekday(e.written_at)}</span>
+                        <span className="forge-journal-entry__date-actions">
+                          <PinButton
+                            sourceKind="journal_entry"
+                            sourceId={e.id}
+                            initiallyPinned={isPinned}
+                          />
+                          <DeleteEntryButton id={e.id} />
+                        </span>
                       </div>
-                    )}
-                  </article>
-                );
-              })}
-            </section>
-          ))}
-        </div>
+                      <div className="forge-journal-entry__body">{e.body}</div>
+                      {e.tags.length > 0 && (
+                        <div className="forge-journal-entry__tags">
+                          {e.tags.map((t) => (
+                            <Link
+                              key={t}
+                              href={`/tags/${encodeURIComponent(t)}`}
+                              className="forge-journal-entry__tag"
+                            >
+                              #{t}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </JournalEntryRow>
+                  );
+                })}
+              </section>
+            ))}
+          </div>
+        </JournalEntryContextMenuProvider>
       )}
     </div>
   );
