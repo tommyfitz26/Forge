@@ -1,43 +1,35 @@
 import Link from 'next/link';
-import { formatDistanceToNow } from 'date-fns';
-import { Plus, ScrollText } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import type { CaptureKind, CaptureState } from '@/lib/capture/kinds';
+import { StreamRows, type StreamRowData } from './StreamRows';
 
 const RECENT_LIMIT = 50;
-
-type CaptureRow = {
-  id: string;
-  title: string;
-  content: string;
-  kind: CaptureKind;
-  state: CaptureState;
-  created_at: string;
-};
-
-function kindPillClass(kind: CaptureKind): string {
-  switch (kind) {
-    case 'idea':
-      return 'forge-tag-pill';
-    case 'problem':
-      return 'forge-tag-pill forge-tag-pill--plum';
-    case 'observation':
-      return 'forge-tag-pill forge-tag-pill--sky';
-    case 'research':
-      return 'forge-tag-pill forge-tag-pill--gold';
-  }
-}
 
 export default async function StreamPage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from('captures')
-    .select('id, title, content, kind, state, created_at')
+    // is_project + project_id are Phase 4.3.1 columns. Cast the result row
+    // since the generated db.ts hasn't picked them up yet.
+    .select('id, title, content, kind, state, created_at, is_project, project_id')
     .neq('state', 'archived')
     .order('created_at', { ascending: false })
     .limit(RECENT_LIMIT);
 
-  const captures = (data ?? []) as CaptureRow[];
+  const captures: StreamRowData[] = (data ?? []).map((c) => {
+    const row = c as typeof c & { is_project?: boolean; project_id?: string | null };
+    return {
+      id: row.id,
+      title: row.title,
+      content: row.content ?? '',
+      kind: row.kind as CaptureKind,
+      state: row.state as CaptureState,
+      created_at: row.created_at,
+      is_project: Boolean(row.is_project),
+      project_id: row.project_id ?? null,
+    };
+  });
 
   return (
     <div className="space-y-6">
@@ -71,32 +63,8 @@ export default async function StreamPage() {
           </div>
         </div>
       ) : (
-        <div className="forge-list-card">
-          {captures.map((c) => (
-            <Link key={c.id} href={`/capture/${c.id}`} className="forge-list-row">
-              <div className="forge-list-row__icon">
-                <ScrollText size={14} />
-              </div>
-              <div className="forge-list-row__body">
-                <div className="forge-list-row__title">{c.title}</div>
-                <div className="forge-list-row__preview">{previewText(c.content)}</div>
-              </div>
-              <div className="forge-list-row__right">
-                <span className="forge-list-row__when">
-                  {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}
-                </span>
-                <span className={kindPillClass(c.kind)}>#{c.kind}</span>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <StreamRows captures={captures} />
       )}
     </div>
   );
-}
-
-function previewText(s: string): string {
-  if (!s) return '';
-  const oneLine = s.replace(/\s+/g, ' ').trim();
-  return oneLine.length > 120 ? oneLine.slice(0, 120) + '…' : oneLine;
 }

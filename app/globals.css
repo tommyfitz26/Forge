@@ -1141,3 +1141,46 @@ html, body {
   margin-left: 6px;
 }
 .forge-proj-tab[data-active="true"] .ct { color: var(--ember); }
+
+/* ============================================================
+   CONTEXT MENU — right-click on capture rows in Stream
+   ============================================================ */
+.forge-context-menu {
+  position: fixed;
+  z-index: 900;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow-1);
+  min-width: 220px;
+  padding: 4px;
+  font-family: var(--sans);
+}
+.forge-context-menu__item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--ink-1);
+  background: none;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+  font-family: var(--sans);
+}
+.forge-context-menu__item:hover { background: var(--bg-2); color: var(--ink-0); }
+.forge-context-menu__item[data-primary="true"]:hover { color: var(--ember); }
+.forge-context-menu__sep {
+  height: 1px;
+  background: var(--line-soft);
+  margin: 4px 6px;
+}
+.forge-context-menu__hint {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-3);
+}
+.forge-context-menu__item:hover .forge-context-menu__hint { color: var(--ink-2); }

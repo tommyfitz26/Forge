@@ -75,6 +75,67 @@ export async function getProject(id: string): Promise<Project | null> {
   return (data ?? null) as Project | null;
 }
 
+export type ProjectCapture = {
+  id: string;
+  title: string;
+  kind: string;
+  state: string;
+  created_at: string;
+};
+
+/**
+ * Captures filed to (or seeded) a given project — for the project detail
+ * Overview tab. Includes the seed capture if seed_capture_id is set.
+ */
+export async function captureForProject(projectId: string): Promise<{
+  seed: ProjectCapture | null;
+  filed: ProjectCapture[];
+}> {
+  const supabase = await untypedSupabase();
+
+  // Fetch the project once for its seed_capture_id.
+  const { data: proj } = await supabase
+    .from('projects')
+    .select('seed_capture_id')
+    .eq('id', projectId)
+    .maybeSingle();
+  const seedId = (proj as { seed_capture_id: string | null } | null)?.seed_capture_id ?? null;
+
+  // Captures filed to this project. Excludes archived.
+  const { data, error } = await supabase
+    .from('captures')
+    .select('id, title, kind, state, created_at, is_project')
+    .eq('project_id', projectId)
+    .neq('state', 'archived')
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) {
+    logger.error('projects.captures.failed', { projectId, err: error.message });
+    return { seed: null, filed: [] };
+  }
+  const filed = ((data ?? []) as ProjectCapture[]);
+
+  // Pull the seed capture explicitly if it exists. The seed may not be in
+  // `filed` if its project_id was never set (older promote flows could have
+  // missed that update). Belt-and-braces: fetch directly.
+  let seed: ProjectCapture | null = null;
+  if (seedId) {
+    const fromFiled = filed.find((c) => c.id === seedId);
+    if (fromFiled) {
+      seed = fromFiled;
+    } else {
+      const { data: seedRow } = await supabase
+        .from('captures')
+        .select('id, title, kind, state, created_at')
+        .eq('id', seedId)
+        .maybeSingle();
+      seed = (seedRow ?? null) as ProjectCapture | null;
+    }
+  }
+
+  return { seed, filed };
+}
+
 /**
  * Aggregate counts for the Workshop inspector and home-page hero.
  */
