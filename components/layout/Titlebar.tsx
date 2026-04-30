@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Bell, Plus, PanelRight, Search, Flame } from 'lucide-react';
 import { ThemePicker } from '@/components/ui/theme-picker';
 import { CmdPalette } from '@/components/cmd-palette';
 import { UnsyncedBadge } from './UnsyncedBadge';
+import type { CaptureTab } from '@/components/capture/CaptureModal';
 import type { Theme } from '@/lib/theme';
 
 const CRUMB_MAP: Record<string, [string, string]> = {
@@ -45,10 +45,12 @@ export function Titlebar({
   email,
   theme,
   onToggleInspector,
+  onOpenCapture,
 }: {
   email: string;
   theme: Theme;
   onToggleInspector: () => void;
+  onOpenCapture: (tab?: CaptureTab) => void;
 }) {
   const pathname = usePathname();
   const [section, here] = deriveCrumb(pathname);
@@ -102,13 +104,14 @@ export function Titlebar({
 
           <UnsyncedBadge />
 
-          <Link
-            href="/capture"
+          <button
+            type="button"
             className="forge-icon-btn"
-            title="Quick capture"
+            title="Quick capture (⌘N)"
+            onClick={() => onOpenCapture()}
           >
             <Plus size={14} />
-          </Link>
+          </button>
 
           <span className="forge-icon-btn" aria-disabled title="Notifications (placeholder)">
             <Bell size={14} />

@@ -47,6 +47,52 @@ export async function createTextCapture(formData: FormData): Promise<CreateResul
   redirect(`/capture/${id}`);
 }
 
+// Web clip capture — Phase 4.2. Saves the URL + optional note as a normal
+// text capture so the existing classifier picks it up. Phase 4.3 adds
+// `source_url` and `media_kind` columns to captures and refactors this to
+// stop embedding the URL in the body. Until then, the URL goes on its own
+// line at the top of `content` so the classifier can see it.
+const CreateWebClipSchema = z.object({
+  url: z.string().trim().url('Needs a valid URL.'),
+  note: z.string().trim().max(5000).optional().default(''),
+});
+
+export async function createWebClipCapture(formData: FormData): Promise<CreateResult> {
+  const parsed = CreateWebClipSchema.safeParse({
+    url: formData.get('url'),
+    note: formData.get('note') ?? '',
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Not signed in.' };
+
+  // Compose: URL on its own line, optional note below.
+  const content = parsed.data.note.length === 0
+    ? parsed.data.url
+    : `${parsed.data.url}\n\n${parsed.data.note}`;
+
+  let id: string;
+  try {
+    const result = await persistCapture(supabase, {
+      userId: user.id,
+      content,
+      source: 'web',
+    });
+    id = result.id;
+  } catch {
+    return { ok: false, error: 'Could not save clip.' };
+  }
+
+  revalidatePath('/');
+  redirect(`/capture/${id}`);
+}
+
 const PhotoCaptionSchema = z.string().trim().max(5000);
 
 export async function createPhotoCapture(formData: FormData): Promise<CreateResult> {

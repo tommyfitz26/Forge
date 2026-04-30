@@ -620,3 +620,324 @@ html, body {
   display: flex; gap: 18px;
   font-family: var(--mono); font-size: 10.5px; color: var(--ink-3);
 }
+
+/* ============================================================
+   CAPTURE MODAL — ⌘N composer
+   ============================================================ */
+.forge-modal--capture {
+  max-width: 640px;
+}
+.forge-cap-tabs {
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-2);
+}
+.forge-cap-tab {
+  padding: 12px 18px;
+  font-size: 13px; color: var(--ink-2);
+  cursor: pointer;
+  border: none; background: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  display: flex; align-items: center; gap: 7px;
+  font-family: var(--sans);
+}
+.forge-cap-tab:hover { color: var(--ink-0); }
+.forge-cap-tab[data-active="true"] {
+  color: var(--ember);
+  border-bottom-color: var(--ember);
+  background: var(--bg-1);
+}
+.forge-cap-body { padding: 20px 22px; }
+.forge-cap-body[hidden] { display: none; }
+
+.forge-cap-body__hint {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--ink-3);
+  margin-top: 10px;
+}
+
+/* Modal footer — project picker, tag chips, save/cancel */
+.forge-cap-actions {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+  background: var(--bg-2);
+  flex-wrap: wrap;
+}
+.forge-cap-field {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: var(--ink-2);
+  font-family: var(--mono);
+}
+.forge-cap-field__val {
+  color: var(--ink-0);
+  background: var(--bg-3);
+  padding: 3px 8px; border-radius: 4px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  font-family: var(--mono);
+}
+.forge-cap-field__val:hover { border-color: var(--ember-soft); color: var(--ember); }
+.forge-cap-actions__hint {
+  margin-left: auto;
+  font-family: var(--mono); font-size: 10.5px;
+  color: var(--ink-3);
+}
+
+/* ============================================================
+   CAPTURE FORM CHROME — used by both the modal AND /capture page
+   so the same wrapper class drives both surfaces.
+   ============================================================ */
+.forge-capture-host textarea,
+.forge-capture-host input[type="text"],
+.forge-capture-host input[type="url"] {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink-0);
+  padding: 12px 14px;
+  font-family: var(--sans);
+  font-size: 14.5px;
+  width: 100%;
+  outline: none;
+  resize: vertical;
+}
+.forge-capture-host textarea:focus,
+.forge-capture-host input[type="text"]:focus,
+.forge-capture-host input[type="url"]:focus {
+  border-color: var(--ember-soft);
+  box-shadow: 0 0 0 3px var(--ember-soft);
+}
+.forge-capture-host textarea::placeholder,
+.forge-capture-host input::placeholder {
+  color: var(--ink-3);
+  font-family: var(--serif);
+  font-style: italic;
+}
+
+.forge-capture-host button[type="submit"] {
+  background: var(--ember);
+  color: var(--check-ink);
+  border: none;
+  border-radius: 6px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--sans);
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: opacity 0.12s;
+}
+.forge-capture-host button[type="submit"]:hover { opacity: 0.92; }
+.forge-capture-host button[type="submit"]:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.forge-capture-host label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-3);
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.forge-capture-host input[type="file"] {
+  background: var(--bg-2);
+  border: 1px dashed var(--line);
+  border-radius: 7px;
+  padding: 10px 12px;
+  color: var(--ink-1);
+  font-family: var(--mono);
+  font-size: 12px;
+  width: 100%;
+}
+.forge-capture-host input[type="file"]::file-selector-button {
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 4px 10px;
+  color: var(--ink-0);
+  font-family: var(--sans);
+  font-size: 12px;
+  cursor: pointer;
+  margin-right: 10px;
+}
+.forge-capture-host input[type="file"]::file-selector-button:hover {
+  border-color: var(--ember-soft);
+  color: var(--ember);
+}
+
+/* The big voice record button — VoiceRecorder lives in components/capture/.
+   Scope here to avoid touching its internals. */
+.forge-capture-host .voice-record-button,
+.forge-capture-host [data-voice-record-button] {
+  background: var(--ember);
+  color: var(--check-ink);
+  border: none;
+}
+
+/* Mode picker on /capture page */
+.forge-mode-picker {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+@media (min-width: 640px) {
+  .forge-mode-picker { grid-template-columns: repeat(4, 1fr); }
+}
+.forge-mode-tile {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 8px;
+  padding: 18px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--ink-1);
+  background: var(--bg-2);
+  text-decoration: none;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+.forge-mode-tile:hover {
+  border-color: var(--ember-soft);
+  color: var(--ember);
+  background: var(--bg-hover);
+}
+.forge-mode-tile[data-active="true"] {
+  border-color: var(--ember);
+  background: var(--ember-soft);
+  color: var(--ember);
+}
+.forge-mode-tile[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   CAPTURE DETAIL — restyle for /capture/[id]
+   ============================================================ */
+.forge-detail {
+  max-width: 760px;
+  margin: 0 auto;
+}
+.forge-detail__back {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--ink-2); font-size: 12.5px;
+  text-decoration: none;
+  margin-bottom: 18px;
+  font-family: var(--mono);
+}
+.forge-detail__back:hover { color: var(--ember); }
+.forge-detail__title {
+  font-family: var(--serif);
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--ink-0);
+  margin: 0 0 8px;
+}
+.forge-detail__meta {
+  display: flex; gap: 12px; align-items: center;
+  font-family: var(--mono); font-size: 11.5px;
+  color: var(--ink-3);
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.forge-detail__content {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 22px;
+  color: var(--ink-1);
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  margin-bottom: 22px;
+}
+.forge-detail__panel {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-1);
+}
+.forge-detail__panel-head {
+  display: flex; align-items: baseline;
+  margin-bottom: 12px;
+  gap: 10px;
+}
+.forge-detail__panel-head h3 {
+  font-family: var(--serif);
+  font-size: 19px;
+  font-weight: 500;
+  margin: 0;
+  color: var(--ink-0);
+}
+.forge-detail__panel-head__meta {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--ink-3);
+}
+
+/* Markdown content in panels (research summary, weekly review) */
+.forge-prose {
+  color: var(--ink-1);
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.7;
+}
+.forge-prose h1, .forge-prose h2, .forge-prose h3, .forge-prose h4 {
+  font-family: var(--serif);
+  font-weight: 500;
+  color: var(--ink-0);
+  margin-top: 1.4em;
+  margin-bottom: 0.4em;
+}
+.forge-prose h1 { font-size: 24px; }
+.forge-prose h2 { font-size: 20px; }
+.forge-prose h3 { font-size: 17px; }
+.forge-prose p { margin: 0 0 0.9em; }
+.forge-prose ul, .forge-prose ol { padding-left: 1.4em; margin: 0 0 0.9em; }
+.forge-prose li { margin-bottom: 0.25em; }
+.forge-prose code {
+  background: var(--bg-3);
+  padding: 1px 6px; border-radius: 3px;
+  font-family: var(--mono); font-size: 0.9em;
+}
+.forge-prose a { color: var(--ember); text-decoration: underline; }
+.forge-prose a:hover { color: var(--ember-dim); }
+.forge-prose blockquote {
+  border-left: 2px solid var(--ember);
+  padding: 4px 14px;
+  margin: 14px 0;
+  color: var(--ink-1);
+  background: var(--ember-soft);
+  font-style: italic;
+}
+
+/* Kind / state / research-status pills used on detail pages */
+.forge-pill {
+  display: inline-flex; align-items: center;
+  font-family: var(--mono); font-size: 10.5px;
+  padding: 2px 8px; border-radius: 999px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  background: var(--bg-3);
+  color: var(--ink-1);
+  border: 1px solid var(--line);
+}
+.forge-pill--idea { background: var(--ember-soft); color: var(--ember); border-color: var(--ember-soft); }
+.forge-pill--problem { background: rgba(192, 138, 168, 0.15); color: var(--plum); border-color: rgba(192, 138, 168, 0.25); }
+.forge-pill--observation { background: rgba(142, 177, 200, 0.15); color: var(--sky); border-color: rgba(142, 177, 200, 0.25); }
+.forge-pill--research { background: rgba(217, 184, 120, 0.15); color: var(--gold); border-color: rgba(217, 184, 120, 0.25); }
+.forge-pill--state-raw { background: var(--bg-3); color: var(--ink-2); }
+.forge-pill--state-developed { background: rgba(142, 170, 102, 0.15); color: var(--moss); border-color: rgba(142, 170, 102, 0.25); }
+.forge-pill--state-archived { background: var(--bg-3); color: var(--ink-3); }
+.forge-pill--research-running { background: rgba(217, 184, 120, 0.15); color: var(--gold); border-color: rgba(217, 184, 120, 0.25); }
+.forge-pill--research-succeeded { background: rgba(142, 170, 102, 0.15); color: var(--moss); border-color: rgba(142, 170, 102, 0.25); }
+.forge-pill--research-failed { background: rgba(232, 128, 102, 0.15); color: var(--hot); border-color: rgba(232, 128, 102, 0.25); }
+.forge-pill--research-pending { background: var(--bg-3); color: var(--ink-2); }
+.forge-pill--research-skipped { background: var(--bg-3); color: var(--ink-3); }

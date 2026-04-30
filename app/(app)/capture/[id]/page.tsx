@@ -4,7 +4,6 @@ import { notFound } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { KindBadge, StateBadge } from '@/components/ui/badge';
 import { StateControls } from './StateControls';
 import { ResearchPanel } from './ResearchPanel';
 import { DevelopPanel } from './DevelopPanel';
@@ -24,6 +23,14 @@ type Params = Promise<{ id: string }>;
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function kindPillClass(kind: CaptureKind): string {
+  return `forge-pill forge-pill--${kind}`;
+}
+
+function statePillClass(state: CaptureState): string {
+  return `forge-pill forge-pill--state-${state}`;
+}
 
 export default async function CaptureDetail({
   params,
@@ -110,38 +117,29 @@ export default async function CaptureDetail({
   );
 
   return (
-    <div className="space-y-6">
-      <div>
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
-        >
-          <ArrowLeft className="h-3 w-3" />
-          Dashboard
-        </Link>
+    <div className="forge-detail">
+      <Link href="/stream" className="forge-detail__back">
+        <ArrowLeft size={12} />
+        Stream
+      </Link>
+
+      <div className="forge-detail__meta">
+        <span className={kindPillClass(capture.kind as CaptureKind)}>{capture.kind}</span>
+        <span className={statePillClass(capture.state as CaptureState)}>{capture.state}</span>
+        <span>{formatDistanceToNow(new Date(capture.created_at), { addSuffix: true })}</span>
+        {capture.source !== 'web' && <span>· via {capture.source}</span>}
       </div>
 
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <KindBadge kind={capture.kind as CaptureKind} />
-          <StateBadge state={capture.state as CaptureState} />
-          <span className="text-xs text-neutral-500">
-            {formatDistanceToNow(new Date(capture.created_at), { addSuffix: true })}
-          </span>
-          {capture.source !== 'web' && (
-            <span className="text-xs text-neutral-500">· via {capture.source}</span>
-          )}
-        </div>
-        <h1 className="text-2xl font-semibold tracking-tight">{capture.title}</h1>
-      </div>
+      <h1 className="forge-detail__title">{capture.title}</h1>
 
       {photos.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-3 mb-5">
           {photos.map((p) =>
             p.url ? (
               <div
                 key={p.id}
-                className="overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-800"
+                className="overflow-hidden rounded-xl"
+                style={{ border: '1px solid var(--line)' }}
               >
                 <Image
                   src={p.url}
@@ -155,7 +153,13 @@ export default async function CaptureDetail({
             ) : (
               <div
                 key={p.id}
-                className="rounded-md border border-dashed border-neutral-300 p-4 text-sm text-neutral-500 dark:border-neutral-700"
+                style={{
+                  border: '1px dashed var(--line)',
+                  borderRadius: 11,
+                  padding: 14,
+                  fontSize: 13,
+                  color: 'var(--ink-2)',
+                }}
               >
                 Attached photo unavailable.
               </div>
@@ -164,15 +168,12 @@ export default async function CaptureDetail({
         </div>
       )}
 
-      {capture.content && (
-        <div className="whitespace-pre-wrap rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm dark:border-neutral-800 dark:bg-neutral-900">
-          {capture.content}
-        </div>
-      )}
+      {capture.content && <div className="forge-detail__content">{capture.content}</div>}
 
       {capture.archive_reason && (
-        <div className="rounded-md border border-neutral-200 p-3 text-sm text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
-          <span className="font-medium">Archive reason:</span> {capture.archive_reason}
+        <div className="forge-detail__panel" style={{ fontSize: 13.5 }}>
+          <span style={{ color: 'var(--ink-2)', fontWeight: 500 }}>Archive reason:</span>{' '}
+          {capture.archive_reason}
         </div>
       )}
 
@@ -206,7 +207,10 @@ export default async function CaptureDetail({
         })}
       />
 
-      <div className="border-t border-neutral-200 pt-6 dark:border-neutral-800">
+      <div
+        className="pt-5 mt-5"
+        style={{ borderTop: '1px solid var(--line)' }}
+      >
         <StateControls id={capture.id} state={capture.state as CaptureState} />
       </div>
     </div>
