@@ -18,6 +18,7 @@ import {
   Search,
   Archive,
   Trash2,
+  Settings,
   Flame,
   ChevronDown,
   type LucideIcon,
@@ -77,6 +78,7 @@ const STORAGE_GROUP: Group = {
   items: [
     { label: 'Archive', href: '/archive', icon: Archive },
     { label: 'Trash', href: '/trash', icon: Trash2 },
+    { label: 'Settings', href: '/settings', icon: Settings },
   ],
 };
 

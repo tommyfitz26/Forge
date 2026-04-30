@@ -21,6 +21,7 @@ const CRUMB_MAP: Record<string, [string, string]> = {
   '/archive': ['Archive', ''],
   '/trash': ['Trash', ''],
   '/capture': ['Capture', ''],
+  '/settings': ['Settings', ''],
 };
 
 function deriveCrumb(pathname: string): [string, string] {

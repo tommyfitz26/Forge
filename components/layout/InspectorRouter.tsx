@@ -301,6 +301,17 @@ function panelFor(pathname: string, ctx: InspectorContext) {
     );
   }
 
+  if (pathname === '/settings') {
+    return (
+      <InspSection>
+        <InspHeading title="Settings" sub="What you're spending; what's running" />
+        <InspEmpty>
+          Tabs above cover costs, cron health, and per-job invocations.
+        </InspEmpty>
+      </InspSection>
+    );
+  }
+
   return (
     <InspSection>
       <InspHeading title="Forge" />
