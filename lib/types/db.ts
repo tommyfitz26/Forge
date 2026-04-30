@@ -275,6 +275,47 @@ export type Database = {
         }
         Relationships: []
       }
+      journal_entries: {
+        Row: {
+          body: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          owner_id: string
+          tags: string[]
+          updated_at: string
+          written_at: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          owner_id: string
+          tags?: string[]
+          updated_at?: string
+          written_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          owner_id?: string
+          tags?: string[]
+          updated_at?: string
+          written_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       links: {
         Row: {
           capture_a: string
@@ -360,6 +401,35 @@ export type Database = {
             columns: ["capture_id"]
             isOneToOne: false
             referencedRelation: "captures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pins: {
+        Row: {
+          owner_id: string
+          pinned_at: string
+          source_id: string
+          source_kind: string
+        }
+        Insert: {
+          owner_id: string
+          pinned_at?: string
+          source_id: string
+          source_kind: string
+        }
+        Update: {
+          owner_id?: string
+          pinned_at?: string
+          source_id?: string
+          source_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pins_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -541,6 +611,38 @@ export type Database = {
             columns: ["capture_id"]
             isOneToOne: false
             referencedRelation: "captures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tags: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          owner_id: string
+          slug: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          owner_id: string
+          slug: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          owner_id?: string
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tags_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]

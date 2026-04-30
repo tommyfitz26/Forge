@@ -3,6 +3,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { AlignLeft, ScrollText } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { listThreads } from '@/lib/db/threads';
+import { pinnedSetForOwner } from '@/lib/db/pins';
+import { PinButton } from '@/components/projects/PinButton';
 import { CAPTURE_KINDS, type CaptureKind } from '@/lib/capture/kinds';
 
 type SearchParams = Promise<{ kind?: string }>;
@@ -18,10 +20,13 @@ export default async function ThreadsPage({ searchParams }: { searchParams: Sear
   const sp = await searchParams;
   const filterKind = isCaptureKind(sp.kind) ? sp.kind : null;
 
-  const threads = await listThreads({
-    status: ['in_progress', 'complete'],
-    ...(filterKind ? { kind: filterKind } : {}),
-  });
+  const [threads, pinned] = await Promise.all([
+    listThreads({
+      status: ['in_progress', 'complete'],
+      ...(filterKind ? { kind: filterKind } : {}),
+    }),
+    pinnedSetForOwner(),
+  ]);
 
   // Bulk-fetch the seed-capture titles so each thread row can show one.
   const captureIds = threads.map((t) => t.capture_id);
@@ -82,23 +87,38 @@ export default async function ThreadsPage({ searchParams }: { searchParams: Sear
             const title = titleByCaptureId.get(t.capture_id) ?? '(untitled)';
             const filledSections = t.sections.filter((s) => s.body.trim().length > 0).length;
             const totalSections = t.sections.length;
+            const isPinned = pinned.has(`thread:${t.id}`);
             return (
-              <Link key={t.id} href={`/threads/${t.id}`} className="forge-list-row">
-                <div className="forge-list-row__icon">
-                  <ScrollText size={14} />
-                </div>
-                <div className="forge-list-row__body">
-                  <div className="forge-list-row__title">{title}</div>
-                  <div className="forge-list-row__preview">
-                    {filledSections} of {totalSections} sections filled
-                    {' · '}
-                    updated {formatDistanceToNow(new Date(t.updated_at), { addSuffix: true })}
+              <div key={t.id} className="forge-list-row" style={{ gap: 12 }}>
+                <Link
+                  href={`/threads/${t.id}`}
+                  style={{
+                    display: 'flex',
+                    flex: 1,
+                    minWidth: 0,
+                    gap: 14,
+                    alignItems: 'center',
+                    color: 'inherit',
+                    textDecoration: 'none',
+                  }}
+                >
+                  <div className="forge-list-row__icon">
+                    <ScrollText size={14} />
                   </div>
-                </div>
-                <div className="forge-list-row__right">
+                  <div className="forge-list-row__body">
+                    <div className="forge-list-row__title">{title}</div>
+                    <div className="forge-list-row__preview">
+                      {filledSections} of {totalSections} sections filled
+                      {' · '}
+                      updated {formatDistanceToNow(new Date(t.updated_at), { addSuffix: true })}
+                    </div>
+                  </div>
+                </Link>
+                <div className="forge-list-row__right" style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <span className={`forge-pill forge-pill--${t.kind}`}>{t.kind}</span>
+                  <PinButton sourceKind="thread" sourceId={t.id} initiallyPinned={isPinned} />
                 </div>
-              </Link>
+              </div>
             );
           })}
         </div>

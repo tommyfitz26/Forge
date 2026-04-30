@@ -8,6 +8,9 @@ import { StatusBar } from '@/components/layout/StatusBar';
 import { AppShell } from '@/components/layout/AppShell';
 import { listProjects, projectCounts } from '@/lib/db/projects';
 import { threadCounts } from '@/lib/db/threads';
+import { topTags } from '@/lib/db/tags';
+import { journalCounts } from '@/lib/db/journal';
+import { pinCounts } from '@/lib/db/pins';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -21,10 +24,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Phase 4.3.1: Sidebar shows the user's active projects under Workshop.
   // Limited to 8 to keep the rail tidy; "All projects" link expands.
   // Phase 4.3.3: Threads counts feed the inspector.
-  const [activeProjects, counts, threads] = await Promise.all([
+  // Phase 4.3.4: Sidebar tags + journal/pin counts.
+  const [activeProjects, counts, threads, tags, journal, pins] = await Promise.all([
     listProjects({ status: 'active', limit: 8 }),
     projectCounts(),
     threadCounts(),
+    topTags(8),
+    journalCounts(),
+    pinCounts(),
   ]);
   const projectsForSidebar: SidebarProject[] = activeProjects.map((p) => ({
     id: p.id,
@@ -51,9 +58,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           archived: threads.archived,
           byKind: threads.byKind,
         },
+        journal: {
+          total: journal.total,
+          thisMonth: journal.thisMonth,
+          dayStreak: journal.dayStreak,
+        },
+        pins: {
+          total: pins.total,
+          byKind: pins.byKind,
+        },
       }}
     >
-      <Sidebar projects={projectsForSidebar} />
+      <Sidebar projects={projectsForSidebar} tags={tags} />
       <main className="forge-main">
         <Suspense fallback={null}>
           <EnableNudges vapidPublicKey={vapidPublicKey} />

@@ -22,6 +22,15 @@ export type InspectorContext = {
     archived: number;
     byKind: { idea: number; problem: number; observation: number; research: number };
   };
+  journal: {
+    total: number;
+    thisMonth: number;
+    dayStreak: number;
+  };
+  pins: {
+    total: number;
+    byKind: { capture: number; project: number; thread: number; journal_entry: number };
+  };
 };
 
 /**
@@ -91,12 +100,19 @@ function panelFor(pathname: string, ctx: InspectorContext) {
 
   if (pathname === '/top-of-mind') {
     return (
-      <InspSection>
-        <InspHeading title="Top of mind" sub="What you're holding right now" />
-        <InspEmpty>
-          Pinned captures, threads, and projects show here. Pin from any list with the bookmark icon.
-        </InspEmpty>
-      </InspSection>
+      <>
+        <InspSection>
+          <InspHeading title="Top of mind" sub="What you're holding right now" />
+          <InspStat k="Total pinned" v={String(ctx.pins.total)} />
+        </InspSection>
+        <InspSection>
+          <InspLabel>By kind</InspLabel>
+          <InspStat k="Captures" v={String(ctx.pins.byKind.capture)} />
+          <InspStat k="Projects" v={String(ctx.pins.byKind.project)} />
+          <InspStat k="Threads" v={String(ctx.pins.byKind.thread)} />
+          <InspStat k="Journal entries" v={String(ctx.pins.byKind.journal_entry)} />
+        </InspSection>
+      </>
     );
   }
 
@@ -125,9 +141,9 @@ function panelFor(pathname: string, ctx: InspectorContext) {
       <>
         <InspSection>
           <InspHeading title="Journal" sub="Where you keep yourself" />
-          <InspStat k="Total entries" v="—" />
-          <InspStat k="This month" v="—" />
-          <InspStat k="Day streak" v="0" />
+          <InspStat k="Total entries" v={String(ctx.journal.total)} />
+          <InspStat k="This month" v={String(ctx.journal.thisMonth)} />
+          <InspStat k="Day streak" v={String(ctx.journal.dayStreak)} />
         </InspSection>
       </>
     );
@@ -195,11 +211,15 @@ function panelFor(pathname: string, ctx: InspectorContext) {
   }
 
   if (pathname.startsWith('/tags/')) {
-    const t = pathname.split('/')[2] ?? '';
+    const t = decodeURIComponent(pathname.split('/')[2] ?? '');
     return (
       <InspSection>
         <InspHeading title={`#${t}`} sub="Filtered by tag" />
-        <InspEmpty>Tag-filtered counts arrive in Phase 4.3 when the tags table lands.</InspEmpty>
+        <InspProp k="kind" v="free-form" />
+        <InspProp k="scope" v="journal entries" />
+        <InspEmpty>
+          Capture and thread tagging join this filter in a follow-up micro-slice.
+        </InspEmpty>
       </InspSection>
     );
   }

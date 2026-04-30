@@ -27,6 +27,7 @@ import {
   gradientKeyForKind,
   type CoverGradientKey,
 } from '@/lib/types/projects';
+import type { TagSummary } from '@/lib/types/tags';
 import type { CaptureKind } from '@/lib/capture/kinds';
 
 type Bucket = {
@@ -85,7 +86,13 @@ export type SidebarProject = {
   cover_gradient_key: CoverGradientKey | null;
 };
 
-export function Sidebar({ projects = [] }: { projects?: SidebarProject[] }) {
+export function Sidebar({
+  projects = [],
+  tags = [],
+}: {
+  projects?: SidebarProject[];
+  tags?: TagSummary[];
+}) {
   const pathname = usePathname();
 
   return (
@@ -204,13 +211,32 @@ export function Sidebar({ projects = [] }: { projects?: SidebarProject[] }) {
         })}
       </div>
 
-      {/* Tags — empty until 4.3.4 */}
+      {/* Tags — populated from real tag usage in Phase 4.3.4. */}
       <div className="forge-nav-group">
         <div className="forge-nav-label">Tags</div>
-        <div className="forge-nav-empty">
-          <Hash size={12} />
-          <span>Tagging unlocks here</span>
-        </div>
+        {tags.length === 0 ? (
+          <div className="forge-nav-empty">
+            <Hash size={12} />
+            <span>Tag a journal entry to seed</span>
+          </div>
+        ) : (
+          tags.map((t) => {
+            const href = `/tags/${encodeURIComponent(t.slug)}`;
+            const active = pathname === href;
+            return (
+              <Link
+                key={t.slug}
+                href={href}
+                className="forge-nav-item"
+                data-active={active ? 'true' : 'false'}
+              >
+                <Hash size={14} className="forge-nav-item__ico" />
+                <span>{t.slug}</span>
+                {t.count > 0 && <span className="forge-nav-item__count">{t.count}</span>}
+              </Link>
+            );
+          })
+        )}
       </div>
 
       {/* Storage */}
