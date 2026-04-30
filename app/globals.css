@@ -150,6 +150,85 @@ html, body {
   grid-template-columns: 240px 1fr 0;
 }
 
+/* Hamburger trigger lives in the titlebar; only visible on mobile (see
+   media query below). On desktop it's display:none. */
+.forge-titlebar__menu { display: none; }
+
+/* Backdrop for the mobile sidebar drawer. */
+.forge-shell__backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.45);
+  border: none;
+  cursor: pointer;
+}
+
+/* ----- Mobile shell (≤ 860px): single column, sidebar becomes drawer ----- */
+@media (max-width: 860px) {
+  .forge-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: 44px 1fr;
+    grid-template-areas:
+      "titlebar"
+      "main";
+    min-height: 0;
+    height: 100dvh;
+  }
+  .forge-shell[data-inspector="closed"] {
+    grid-template-columns: 1fr;
+  }
+
+  /* Show the hamburger; hide every desktop-only element in the titlebar. */
+  .forge-titlebar__menu { display: inline-flex; }
+  .forge-titlebar [data-desktop-only] { display: none !important; }
+  .forge-titlebar { padding: 0 12px; gap: 10px; }
+  .forge-titlebar__right { gap: 8px; }
+  .forge-crumbs { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .forge-brand-mini { font-size: 15px; }
+
+  /* Sidebar becomes a slide-in drawer on the left edge. */
+  .forge-sidebar {
+    position: fixed;
+    top: 44px;
+    bottom: 0;
+    left: 0;
+    width: min(86vw, 320px);
+    z-index: 50;
+    border-right: 1px solid var(--line);
+    background: var(--bg-1);
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    box-shadow: 12px 0 32px rgba(0, 0, 0, 0.4);
+  }
+  .forge-shell[data-sidebar="open"] .forge-sidebar { transform: translateX(0); }
+  .forge-shell[data-sidebar="open"] .forge-shell__backdrop { display: block; }
+
+  /* Inspector hides entirely on mobile; rebuild as a bottom-sheet later
+     if it becomes valuable. Statusbar likewise hides. */
+  .forge-inspector,
+  .forge-statusbar { display: none !important; }
+
+  /* Main runs full-width with reduced padding. */
+  .forge-main { padding: 18px 16px 60px; }
+
+  /* Page headers can wrap onto two lines on narrow screens. */
+  .forge-page-header { flex-wrap: wrap; gap: 8px 12px; }
+  .forge-page-header h1 { font-size: 26px; }
+  .forge-page-header__actions { margin-left: auto; }
+}
+
+/* Even smaller (≤ 480px): tighten typography another notch. */
+@media (max-width: 480px) {
+  .forge-main { padding: 14px 12px 60px; }
+  .forge-page-header h1 { font-size: 22px; }
+  .forge-week-grid {
+    /* The 7-column day grid is unreadable below 480; stack to 1 column. */
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ============================================================
    TITLEBAR
    ============================================================ */
