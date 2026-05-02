@@ -163,7 +163,7 @@ function panelFor(pathname: string, ctx: InspectorContext) {
     );
   }
 
-  if (pathname === '/workshop' || pathname.startsWith('/projects/')) {
+  if (pathname === '/workshop') {
     return (
       <>
         <InspSection>
@@ -180,6 +180,19 @@ function panelFor(pathname: string, ctx: InspectorContext) {
           <InspStat k="+ New explicit" v={String(ctx.workshop.total)} />
         </InspSection>
       </>
+    );
+  }
+
+  if (pathname.startsWith('/projects/')) {
+    return (
+      <InspSection>
+        <InspHeading title="Project" sub="Workspace for one initiative" />
+        <InspEmpty>
+          Tabs cover Next steps, Parts, Threads, References, Collaborators,
+          and Timeline. Tab pill counts above show per-project totals; pull
+          back to /workshop for cross-project status.
+        </InspEmpty>
+      </InspSection>
     );
   }
 
