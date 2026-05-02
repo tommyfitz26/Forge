@@ -13,6 +13,7 @@ import {
   ScrollText,
   Library as LibraryIcon,
   Compass,
+  Network,
   Hash,
   Lightbulb,
   CircleAlert,
@@ -64,6 +65,7 @@ const WORKSHOP_FOOTER: Bucket[] = [
   { label: 'Threads', href: '/threads', icon: AlignLeft },
   { label: 'Library', href: '/library', icon: LibraryIcon },
   { label: 'Atlas', href: '/atlas', icon: Compass },
+  { label: 'Map', href: '/map', icon: Network },
   { label: 'Scraps', href: '/scraps', icon: ScrollText },
 ];
 

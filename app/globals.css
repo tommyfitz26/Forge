@@ -62,10 +62,10 @@
   --line-soft: #ecedf0;
 
   --ink-0: #15181c;
-  --ink-1: #3d4148;
-  --ink-2: #6b707a;
-  --ink-3: #989da6;
-  --ink-4: #c5c8cd;
+  --ink-1: #2c3038;
+  --ink-2: #4a4f57;
+  --ink-3: #5d6470;
+  --ink-4: #aab0ba;
 
   --ember: #c66a2a;
   --ember-dim: #9c4f1f;
@@ -3163,5 +3163,203 @@ html, body {
   font-weight: 500;
   margin: 0;
   color: var(--ink-0);
+}
+
+/* ============================================================
+   MAP (Phase 5.8 + 5.8.1) — Lanes (default) + Graph (canvas) views
+   ============================================================ */
+.forge-map { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+.forge-map__controls {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+}
+.forge-map__view-tabs { margin: 0; }
+.forge-map__layout { display: flex; flex-direction: column; gap: 12px; flex: 1; min-height: 0; }
+.forge-map__chip-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+}
+.forge-map__windows {
+  display: flex; align-items: center; gap: 6px;
+}
+.forge-map__chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+}
+.forge-map__chip:hover { color: var(--ink-0); border-color: var(--ember-soft); }
+.forge-map__chip[data-active="true"] {
+  background: var(--ember-soft);
+  border-color: var(--ember);
+  color: var(--ember);
+}
+.forge-map__chip-swatch {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.forge-map__chip-count {
+  margin-left: 4px;
+  color: var(--ink-3);
+  font-size: 10px;
+}
+.forge-map__chip[data-active="true"] .forge-map__chip-count { color: var(--ember-dim, var(--ember)); }
+
+.forge-map__stage {
+  position: relative;
+  flex: 1;
+  min-height: 480px;
+  display: flex;
+  gap: 12px;
+}
+.forge-map__canvas-wrap {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 50% 0, var(--ember-soft) 0%, transparent 40%),
+    var(--bg-2);
+  overflow: hidden;
+  box-shadow: var(--shadow-1);
+  position: relative;
+}
+.forge-map__canvas-wrap canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.forge-map__deck {
+  width: 280px;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-2);
+  padding: 18px 18px 20px;
+  box-shadow: var(--shadow-1);
+  display: flex; flex-direction: column;
+}
+.forge-map__deck-kind {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ember);
+  margin-bottom: 4px;
+}
+.forge-map__deck-title {
+  font-family: var(--serif);
+  font-size: 19px;
+  font-weight: 500;
+  color: var(--ink-0);
+  margin: 0 0 10px;
+  line-height: 1.25;
+}
+.forge-map__deck-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+}
+@media (max-width: 860px) {
+  .forge-map__stage { flex-direction: column; }
+  .forge-map__deck { width: auto; }
+}
+
+/* Lanes view — column per kind, hover any cell to highlight its connections.
+   Built as horizontal scroll on overflow rather than wrapping, so all kinds
+   stay legible side-by-side. */
+.forge-map-lanes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+.forge-map-lanes__col {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--bg-2);
+  box-shadow: var(--shadow-1);
+  min-height: 0;
+  overflow: hidden;
+}
+.forge-map-lanes__col-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-2);
+}
+.forge-map-lanes__col-swatch {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.forge-map-lanes__col-ico { color: var(--ink-3); flex-shrink: 0; }
+.forge-map-lanes__col-label { color: var(--ink-1); }
+.forge-map-lanes__col-count { margin-left: auto; color: var(--ink-3); }
+.forge-map-lanes__list {
+  list-style: none; margin: 0; padding: 6px;
+  overflow-y: auto;
+  max-height: 600px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.forge-map-lanes__cell {
+  border-radius: 7px;
+  transition: opacity 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+.forge-map-lanes__cell[data-dim="true"] { opacity: 0.35; }
+.forge-map-lanes__cell[data-focus="true"] {
+  background: var(--ember-soft);
+  transform: translateX(2px);
+}
+.forge-map-lanes__cell[data-neighbor="true"] {
+  background: color-mix(in oklab, var(--ember) 8%, transparent);
+}
+.forge-map-lanes__cell-link {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  text-decoration: none;
+  color: var(--ink-1);
+  font-family: var(--serif);
+  font-size: 14px;
+  line-height: 1.35;
+}
+.forge-map-lanes__cell-link:hover { color: var(--ember); }
+.forge-map-lanes__cell-title {
+  flex: 1; min-width: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.forge-map-lanes__cell-degree {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-3);
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 7px;
+  min-width: 22px;
+  text-align: center;
+}
+.forge-map-lanes__cell[data-focus="true"] .forge-map-lanes__cell-degree,
+.forge-map-lanes__cell[data-neighbor="true"] .forge-map-lanes__cell-degree {
+  color: var(--ember);
+  border-color: var(--ember-soft);
 }
 
