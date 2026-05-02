@@ -26,12 +26,17 @@ import {
 } from '@/lib/db/project-detail';
 import { listOpenTasksForProject, listTasksForProject } from '@/lib/db/project-tasks';
 import { listPartsForProject } from '@/lib/db/project-parts';
+import {
+  listDeadlinesForProject,
+  projectDeadlineCounts,
+} from '@/lib/db/project-deadlines';
 import { gradientCssForKey, gradientKeyForKind, type CoverGradientKey } from '@/lib/types/projects';
 import { ConnectionsPanel } from '@/components/links/ConnectionsPanel';
 import { SuggestionsPanel } from '@/components/links/SuggestionsPanel';
 import { PostSaveAutoRefresh } from '@/components/links/PostSaveAutoRefresh';
 import { NextStepsPanel } from '@/components/projects/NextStepsPanel';
 import { PartsList } from '@/components/projects/PartsList';
+import { DeadlinesList } from '@/components/projects/DeadlinesList';
 import type { CaptureKind } from '@/lib/capture/kinds';
 
 type Params = Promise<{ id: string }>;
@@ -78,6 +83,8 @@ export default async function ProjectDetail({
     allTasks,
     parts,
     counts,
+    deadlines,
+    deadlineCounts,
   ] = await Promise.all([
     captureForProject(id),
     listThreadsForProject(id),
@@ -88,6 +95,8 @@ export default async function ProjectDetail({
     listTasksForProject(id),
     listPartsForProject(id),
     projectTabCounts(id),
+    listDeadlinesForProject(id),
+    projectDeadlineCounts(id),
   ]);
 
   const filedExcludingSeed = filed.filter((c) => c.id !== seed?.id);
@@ -115,6 +124,8 @@ export default async function ProjectDetail({
         return counts.refs;
       case 'people':
         return counts.people;
+      case 'timeline':
+        return deadlineCounts.pending;
       default:
         return null;
     }
@@ -453,44 +464,56 @@ export default async function ProjectDetail({
       )}
 
       {/* ============================================================
-          TIMELINE
+          TIMELINE — deadlines (forward) + events (backward)
           ============================================================ */}
       {activeTab === 'timeline' && (
-        <div className="forge-detail__panel">
-          <div className="forge-detail__panel-head">
-            <h3>Timeline</h3>
-            <span className="forge-detail__panel-head__meta">
-              recent project events
-            </span>
+        <div className="space-y-5">
+          <div className="forge-detail__panel">
+            <DeadlinesList
+              projectId={project.id}
+              deadlines={deadlines}
+              projectTargetAt={project.target_at}
+            />
           </div>
-          {timeline.length === 0 ? (
-            <p
-              style={{
-                fontFamily: 'var(--serif)',
-                fontStyle: 'italic',
-                color: 'var(--ink-2)',
-                fontSize: 14,
-                margin: 0,
-              }}
-            >
-              Nothing has happened in this project yet. Capture and file a
-              thought to start the timeline.
-            </p>
-          ) : (
-            <ol className="forge-timeline">
-              {timeline.map((e, i) => (
-                <li key={`${e.kind}-${i}-${e.at}`} className="forge-timeline__row">
-                  <span className="forge-timeline__dot" data-kind={e.kind} />
-                  <div className="forge-timeline__body">
-                    <TimelineEntry e={e} />
-                    <div className="forge-timeline__when">
-                      {formatDistanceToNow(new Date(e.at), { addSuffix: true })}
+
+          <div className="forge-detail__panel">
+            <div className="forge-detail__panel-head">
+              <h3>Past events</h3>
+              <span className="forge-detail__panel-head__meta">
+                {timeline.length === 0
+                  ? 'nothing has happened yet'
+                  : `${timeline.length} event${timeline.length === 1 ? '' : 's'}`}
+              </span>
+            </div>
+            {timeline.length === 0 ? (
+              <p
+                style={{
+                  fontFamily: 'var(--serif)',
+                  fontStyle: 'italic',
+                  color: 'var(--ink-2)',
+                  fontSize: 14,
+                  margin: 0,
+                }}
+              >
+                Capture and file a thought, or start a thread, to populate the
+                timeline.
+              </p>
+            ) : (
+              <ol className="forge-timeline">
+                {timeline.map((e, i) => (
+                  <li key={`${e.kind}-${i}-${e.at}`} className="forge-timeline__row">
+                    <span className="forge-timeline__dot" data-kind={e.kind} />
+                    <div className="forge-timeline__body">
+                      <TimelineEntry e={e} />
+                      <div className="forge-timeline__when">
+                        {formatDistanceToNow(new Date(e.at), { addSuffix: true })}
+                      </div>
                     </div>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          )}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -34,3 +34,19 @@ export type ProjectPart = {
   updated_at: string;
   deleted_at: string | null;
 };
+
+export const DEADLINE_STATUSES = ['pending', 'hit', 'missed'] as const;
+export type DeadlineStatus = (typeof DEADLINE_STATUSES)[number];
+
+export type ProjectDeadline = {
+  id: string;
+  owner_id: string;
+  project_id: string;
+  title: string;
+  due_at: string;            // ISO date (YYYY-MM-DD)
+  status: DeadlineStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+};

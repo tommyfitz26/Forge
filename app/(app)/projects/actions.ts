@@ -227,3 +227,107 @@ export async function deleteProjectPart(input: {
   revalidatePath(`/projects/${parsed.data.project_id}`);
   return { ok: true };
 }
+
+// ---------------------------------------------------------------------------
+// project_deadlines
+// ---------------------------------------------------------------------------
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+const CreateDeadlineSchema = z.object({
+  project_id: z.string().uuid(),
+  title: z.string().trim().min(1, 'A deadline needs a label.').max(140),
+  due_at: z.string().regex(DATE_RE, 'Pick a valid date.'),
+  notes: z.string().trim().max(1000).optional().default(''),
+});
+
+export async function createProjectDeadline(formData: FormData): Promise<ActionResult> {
+  const parsed = CreateDeadlineSchema.safeParse({
+    project_id: formData.get('project_id'),
+    title: formData.get('title'),
+    due_at: formData.get('due_at'),
+    notes: formData.get('notes') ?? '',
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' };
+  }
+
+  const authClient = await createClient();
+  const {
+    data: { user },
+  } = await authClient.auth.getUser();
+  if (!user) return { ok: false, error: 'Not signed in.' };
+
+  const supabase = await untypedSupabase();
+  const { data, error } = await supabase
+    .from('project_deadlines')
+    .insert({
+      owner_id: user.id,
+      project_id: parsed.data.project_id,
+      title: parsed.data.title,
+      due_at: parsed.data.due_at,
+      ...(parsed.data.notes.length > 0 ? { notes: parsed.data.notes } : {}),
+    })
+    .select('id')
+    .single();
+  if (error || !data) {
+    logger.error('project.deadline.create.failed', { err: error?.message });
+    return { ok: false, error: 'Could not create deadline.' };
+  }
+  revalidatePath(`/projects/${parsed.data.project_id}`);
+  return { ok: true, id: data.id };
+}
+
+const ToggleDeadlineSchema = z.object({
+  id: z.string().uuid(),
+  project_id: z.string().uuid(),
+  hit: z.boolean(),
+});
+
+export async function toggleProjectDeadline(input: {
+  id: string;
+  project_id: string;
+  hit: boolean;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const parsed = ToggleDeadlineSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: 'Invalid input.' };
+  const supabase = await untypedSupabase();
+  const { error } = await supabase
+    .from('project_deadlines')
+    .update({
+      status: parsed.data.hit ? 'hit' : 'pending',
+      completed_at: parsed.data.hit ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', parsed.data.id);
+  if (error) {
+    logger.error('project.deadline.toggle.failed', { id: parsed.data.id, err: error.message });
+    return { ok: false, error: 'Could not update deadline.' };
+  }
+  revalidatePath(`/projects/${parsed.data.project_id}`);
+  return { ok: true };
+}
+
+const DeleteDeadlineSchema = z.object({
+  id: z.string().uuid(),
+  project_id: z.string().uuid(),
+});
+
+export async function deleteProjectDeadline(input: {
+  id: string;
+  project_id: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const parsed = DeleteDeadlineSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: 'Invalid input.' };
+  const supabase = await untypedSupabase();
+  const { error } = await supabase
+    .from('project_deadlines')
+    .delete()
+    .eq('id', parsed.data.id);
+  if (error) {
+    logger.error('project.deadline.delete.failed', { id: parsed.data.id, err: error.message });
+    return { ok: false, error: 'Could not delete deadline.' };
+  }
+  revalidatePath(`/projects/${parsed.data.project_id}`);
+  return { ok: true };
+}

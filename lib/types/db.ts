@@ -277,6 +277,53 @@ export type Database = {
           },
         ]
       }
+      entities: {
+        Row: {
+          created_at: string
+          first_seen_at: string
+          id: string
+          kind: string
+          last_seen_at: string
+          mention_count: number
+          name: string
+          normalized_name: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          kind: string
+          last_seen_at?: string
+          mention_count?: number
+          name: string
+          normalized_name: string
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          kind?: string
+          last_seen_at?: string
+          mention_count?: number
+          name?: string
+          normalized_name?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entities_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       intentions: {
         Row: {
           body: string
@@ -386,50 +433,142 @@ export type Database = {
           },
         ]
       }
-      links: {
+      link_suggestions: {
         Row: {
-          capture_a: string
-          capture_b: string
-          confirmed_at: string | null
-          created_at: string
           id: string
-          kind: string
-          last_suggested_at: string | null
-          reason: string | null
+          owner_id: string
+          reason: string
+          resolved_at: string | null
+          source_id: string
+          source_kind: string
+          source_snapshot_hash: string
+          status: string
+          suggested_at: string
+          target_id: string
+          target_kind: string
         }
         Insert: {
-          capture_a: string
-          capture_b: string
-          confirmed_at?: string | null
-          created_at?: string
           id?: string
-          kind: string
-          last_suggested_at?: string | null
-          reason?: string | null
+          owner_id: string
+          reason: string
+          resolved_at?: string | null
+          source_id: string
+          source_kind: string
+          source_snapshot_hash: string
+          status?: string
+          suggested_at?: string
+          target_id: string
+          target_kind: string
         }
         Update: {
-          capture_a?: string
-          capture_b?: string
-          confirmed_at?: string | null
-          created_at?: string
           id?: string
-          kind?: string
-          last_suggested_at?: string | null
-          reason?: string | null
+          owner_id?: string
+          reason?: string
+          resolved_at?: string | null
+          source_id?: string
+          source_kind?: string
+          source_snapshot_hash?: string
+          status?: string
+          suggested_at?: string
+          target_id?: string
+          target_kind?: string
         }
         Relationships: [
           {
-            foreignKeyName: "links_capture_a_fkey"
-            columns: ["capture_a"]
+            foreignKeyName: "link_suggestions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      links: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          id: string
+          kind: string
+          owner_id: string
+          reason: string | null
+          source_id: string
+          source_kind: string
+          target_id: string
+          target_kind: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          owner_id: string
+          reason?: string | null
+          source_id: string
+          source_kind: string
+          target_id: string
+          target_kind: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          owner_id?: string
+          reason?: string | null
+          source_id?: string
+          source_kind?: string
+          target_id?: string
+          target_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "links_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mentions: {
+        Row: {
+          capture_id: string
+          created_at: string
+          entity_id: string
+          owner_id: string
+        }
+        Insert: {
+          capture_id: string
+          created_at?: string
+          entity_id: string
+          owner_id: string
+        }
+        Update: {
+          capture_id?: string
+          created_at?: string
+          entity_id?: string
+          owner_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentions_capture_id_fkey"
+            columns: ["capture_id"]
             isOneToOne: false
             referencedRelation: "captures"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "links_capture_b_fkey"
-            columns: ["capture_b"]
+            foreignKeyName: "mentions_entity_id_fkey"
+            columns: ["entity_id"]
             isOneToOne: false
-            referencedRelation: "captures"
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mentions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -500,6 +639,114 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_parts: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          id: string
+          note: string | null
+          owner_id: string
+          position: number
+          project_id: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          note?: string | null
+          owner_id: string
+          position?: number
+          project_id: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          note?: string | null
+          owner_id?: string
+          position?: number
+          project_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_parts_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_parts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_tasks: {
+        Row: {
+          body: string
+          completed_at: string | null
+          created_at: string
+          due_at: string | null
+          id: string
+          owner_id: string
+          position: number
+          project_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          completed_at?: string | null
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          owner_id: string
+          position?: number
+          project_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          completed_at?: string | null
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          owner_id?: string
+          position?: number
+          project_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_tasks_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
