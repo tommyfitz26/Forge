@@ -3073,3 +3073,95 @@ html, body {
   margin-top: auto;
 }
 
+/* ============================================================
+   ATLAS (Phase 5.7) — entity browse + detail
+   ============================================================ */
+.forge-atlas__grid {
+  list-style: none; margin: 0; padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.forge-atlas__card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-2);
+  transition: border-color 0.18s ease, transform 0.18s ease;
+  box-shadow: var(--shadow-1);
+}
+.forge-atlas__card:hover {
+  border-color: var(--ember-soft);
+  transform: translateY(-1px);
+}
+.forge-atlas__card-link {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+  text-decoration: none; color: inherit;
+}
+.forge-atlas__card-ico {
+  color: var(--ember);
+  flex-shrink: 0;
+}
+.forge-atlas__card-body { min-width: 0; flex: 1; }
+.forge-atlas__card-name {
+  font-family: var(--serif);
+  font-size: 16px;
+  color: var(--ink-0);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.forge-atlas__card-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+
+/* Atlas detail page */
+.forge-atlas-detail { display: flex; flex-direction: column; gap: 20px; }
+.forge-atlas-detail__head {
+  display: flex; align-items: flex-start; gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-2);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-1);
+}
+.forge-atlas-detail__head-ico { color: var(--ember); flex-shrink: 0; margin-top: 4px; }
+.forge-atlas-detail__head-kind {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ember);
+  margin-bottom: 4px;
+}
+.forge-atlas-detail__head-name {
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--ink-0);
+  margin: 0 0 8px;
+  line-height: 1.1;
+}
+.forge-atlas-detail__head-meta {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--ink-2);
+  line-height: 1.55;
+}
+
+.forge-atlas-detail__mentions { display: flex; flex-direction: column; gap: 12px; }
+.forge-atlas-detail__mentions-title {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 500;
+  margin: 0;
+  color: var(--ink-0);
+}
+

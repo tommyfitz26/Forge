@@ -9,9 +9,25 @@ import { SuggestLinksSchema } from './suggest-links-schema';
 
 // Title style per SPEC §4.2 rule 2: 4–8 words, Title Case, no trailing
 // punctuation. The prompt enforces style; Zod enforces structural sanity only.
+//
+// Phase 5.7 — `entities` is a new optional output (defaults to []) feeding
+// the Atlas surface. Marginal Haiku cost is ~50–80 output tokens per call
+// (well under $0.001 incremental).
+export const ENTITY_KINDS = ['person', 'place', 'thing'] as const;
+export type EntityKind = (typeof ENTITY_KINDS)[number];
+
 export const ClassifyCaptureSchema = z.object({
   kind: z.enum([...CAPTURE_KINDS]),
   title: z.string().min(1).max(80),
+  entities: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(80),
+        kind: z.enum(ENTITY_KINDS),
+      }),
+    )
+    .max(20)
+    .default([]),
 });
 
 export type ClassifyCapture = z.infer<typeof ClassifyCaptureSchema>;
@@ -59,7 +75,9 @@ export const TASKS = {
     model: 'claude-haiku-4-5',
     promptFile: 'classify_capture.md',
     outputSchema: ClassifyCaptureSchema,
-    maxTokens: 200,
+    // Phase 5.7 bumped from 200 → 400 to leave headroom for the entities
+    // array on entity-dense captures.
+    maxTokens: 400,
     temperature: 0,
     pricing: { inputPer1M: 1, outputPer1M: 5 },
   },

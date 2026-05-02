@@ -17,6 +17,7 @@ import { thisWeekAggregates } from '@/lib/db/this-week';
 import { scrapsCount } from '@/lib/db/scraps';
 import { trashCount } from '@/lib/db/trash';
 import { libraryCounts } from '@/lib/db/library';
+import { atlasCounts } from '@/lib/db/atlas';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -46,6 +47,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     scrapsTotal,
     trash,
     library,
+    atlas,
   ] = await Promise.all([
     listProjects({ status: 'active', limit: 8 }),
     projectCounts(),
@@ -59,6 +61,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     scrapsCount(),
     trashCount(),
     libraryCounts(),
+    atlasCounts(),
   ]);
   const projectsForSidebar: SidebarProject[] = activeProjects.map((p) => ({
     id: p.id,
@@ -119,6 +122,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           visual: library.visual,
           text: library.text,
           process: library.process,
+        },
+        atlas: {
+          total: atlas.total,
+          person: atlas.byKind.person,
+          place: atlas.byKind.place,
+          thing: atlas.byKind.thing,
         },
       }}
     >
