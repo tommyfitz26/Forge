@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { createWebClipCapture } from '@/app/(app)/capture/actions';
 
-export function WebClipCapture() {
+export function WebClipCapture({ projectId }: { projectId?: string | null }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -45,6 +45,8 @@ export function WebClipCapture() {
       {error && (
         <p style={{ color: 'var(--hot)', fontSize: 13 }}>{error}</p>
       )}
+
+      {projectId && <input type="hidden" name="project_id" value={projectId} />}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button type="submit" disabled={isPending}>

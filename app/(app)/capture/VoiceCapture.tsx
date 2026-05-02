@@ -12,7 +12,7 @@ type Status =
 
 const SLOW_AFTER_MS = 12_000;
 
-export function VoiceCapture() {
+export function VoiceCapture({ projectId }: { projectId?: string | null } = {}) {
   const router = useRouter();
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const slowTimerRef = useRef<number | null>(null);
@@ -33,6 +33,7 @@ export function VoiceCapture() {
       blob: audio.blob,
       mimeType: audio.mimeType,
       durationSeconds: audio.durationSeconds,
+      projectId: projectId ?? null,
     });
 
     if (slowTimerRef.current != null) {

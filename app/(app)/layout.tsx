@@ -69,11 +69,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     kind_seed: p.kind_seed,
     cover_gradient_key: p.cover_gradient_key,
   }));
+  // Capture modal's project picker — same active set as the sidebar, but only
+  // the bits the dropdown needs.
+  const modalProjects = activeProjects.map((p) => ({ id: p.id, title: p.title }));
 
   return (
     <AppShell
       email={email}
       theme={theme}
+      modalProjects={modalProjects}
       inspectorCtx={{
         workshop: {
           active: counts.active,

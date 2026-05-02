@@ -30,6 +30,13 @@ export type PersistInput = {
   mediaKind?: 'note' | 'voice' | 'photo' | 'clip';
   /** Optional URL the user clipped — populated only on web-clip captures. */
   sourceUrl?: string;
+  /**
+   * Optional project to file the capture into at create time. Set when the
+   * user picks a project in the capture modal. Skipped (NULL project_id) when
+   * undefined or empty — the capture lives in the Stream/Scraps view until
+   * promoted or filed later.
+   */
+  projectId?: string;
 };
 
 export type PersistResult = { id: string; kind: CaptureKind };
@@ -101,6 +108,7 @@ export async function persistCapture(
     research_status: initialResearchStatus(kind),
     ...(input.mediaKind ? { media_kind: input.mediaKind } : {}),
     ...(input.sourceUrl ? { source_url: input.sourceUrl } : {}),
+    ...(input.projectId ? { project_id: input.projectId } : {}),
   };
 
   const { data, error } = await supabase

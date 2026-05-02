@@ -8,7 +8,7 @@ import { createPhotoCapture } from './actions';
 
 const ACCEPTED_MIMES = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
 
-export function PhotoCapture() {
+export function PhotoCapture({ projectId }: { projectId?: string | null }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -101,6 +101,8 @@ export function PhotoCapture() {
       </div>
 
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+      {projectId && <input type="hidden" name="project_id" value={projectId} />}
 
       <div className="flex items-center justify-end gap-2">
         <Button type="submit" disabled={isPending}>

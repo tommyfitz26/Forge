@@ -17,12 +17,26 @@ import { logger } from '@/lib/logger';
 
 const CreateTextSchema = z.object({
   content: z.string().trim().min(1, 'Write something first.').max(5000),
+  project_id: z.string().uuid().optional(),
 });
+
+/**
+ * Strip empty / non-uuid values from `formData.get('project_id')` so the Zod
+ * schema's `.uuid()` check only fires when the user actually picked a project.
+ */
+function readProjectId(formData: FormData): string | undefined {
+  const raw = formData.get('project_id');
+  if (typeof raw !== 'string' || raw.length === 0) return undefined;
+  return raw;
+}
 
 export type CreateResult = { ok: true; id: string } | { ok: false; error: string };
 
 export async function createTextCapture(formData: FormData): Promise<CreateResult> {
-  const parsed = CreateTextSchema.safeParse({ content: formData.get('content') });
+  const parsed = CreateTextSchema.safeParse({
+    content: formData.get('content'),
+    project_id: readProjectId(formData),
+  });
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' };
   }
@@ -40,6 +54,7 @@ export async function createTextCapture(formData: FormData): Promise<CreateResul
       content: parsed.data.content,
       source: 'web',
       mediaKind: 'note',
+      ...(parsed.data.project_id ? { projectId: parsed.data.project_id } : {}),
     });
     id = result.id;
   } catch {
@@ -63,12 +78,14 @@ export async function createTextCapture(formData: FormData): Promise<CreateResul
 const CreateWebClipSchema = z.object({
   url: z.string().trim().url('Needs a valid URL.'),
   note: z.string().trim().max(5000).optional().default(''),
+  project_id: z.string().uuid().optional(),
 });
 
 export async function createWebClipCapture(formData: FormData): Promise<CreateResult> {
   const parsed = CreateWebClipSchema.safeParse({
     url: formData.get('url'),
     note: formData.get('note') ?? '',
+    project_id: readProjectId(formData),
   });
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' };
@@ -93,6 +110,7 @@ export async function createWebClipCapture(formData: FormData): Promise<CreateRe
       source: 'web',
       mediaKind: 'clip',
       sourceUrl: parsed.data.url,
+      ...(parsed.data.project_id ? { projectId: parsed.data.project_id } : {}),
     });
     id = result.id;
   } catch {
@@ -125,6 +143,11 @@ export async function createPhotoCapture(formData: FormData): Promise<CreateResu
   }
   const caption = captionParse.data;
 
+  const projectId = readProjectId(formData);
+  if (projectId !== undefined && !z.string().uuid().safeParse(projectId).success) {
+    return { ok: false, error: 'Invalid project.' };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -150,6 +173,7 @@ export async function createPhotoCapture(formData: FormData): Promise<CreateResu
         research_status: 'skipped',
         // Phase 5.6 — bucket into Library Visual shelf.
         media_kind: 'photo',
+        ...(projectId ? { project_id: projectId } : {}),
       })
       .select('id')
       .single();
@@ -165,6 +189,7 @@ export async function createPhotoCapture(formData: FormData): Promise<CreateResu
         content: caption,
         source: 'web',
         mediaKind: 'photo',
+        ...(projectId ? { projectId } : {}),
       });
       captureId = result.id;
     } catch (err) {

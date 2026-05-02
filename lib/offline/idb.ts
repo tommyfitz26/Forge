@@ -13,6 +13,8 @@ export type PendingItem = {
   durationSeconds: number | null;
   attempts: number;
   lastError: string | null;
+  /** Optional — project the user picked in the modal before recording. */
+  projectId?: string | null;
 };
 
 const DB_NAME = 'forge';

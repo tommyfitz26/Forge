@@ -809,6 +809,63 @@ html, body {
   color: var(--ink-3);
 }
 
+/* Project picker dropdown inside the capture footer. Anchored to the
+   trigger via position:relative — the menu pops above the footer (footer
+   is at the bottom of the modal so the menu opens upward). */
+.forge-cap-projpick { position: relative; }
+.forge-cap-projpick__btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--bg-3); border: 1px solid var(--line);
+  color: var(--ink-0);
+  padding: 3px 8px; border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--mono); font-size: 11.5px;
+  max-width: 220px;
+}
+.forge-cap-projpick__btn > span {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.forge-cap-projpick__btn:hover { border-color: var(--ember-soft); color: var(--ember); }
+.forge-cap-projpick__menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 240px;
+  max-width: 320px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  padding: 4px;
+  z-index: 50;
+  display: flex; flex-direction: column;
+}
+.forge-cap-projpick__item {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 4px;
+  background: transparent; border: 0;
+  color: var(--ink-1);
+  font-family: var(--sans); font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.forge-cap-projpick__item:hover { background: var(--bg-3); color: var(--ink-0); }
+.forge-cap-projpick__item[data-active="true"] { color: var(--ember); }
+.forge-cap-projpick__item-name {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1; min-width: 0;
+}
+.forge-cap-projpick__empty {
+  padding: 8px 10px;
+  color: var(--ink-3);
+  font-family: var(--mono); font-size: 11px;
+  font-style: italic;
+}
+
 /* ============================================================
    CAPTURE FORM CHROME — used by both the modal AND /capture page
    so the same wrapper class drives both surfaces.

@@ -28,6 +28,9 @@ async function uploadOnce(item: PendingItem): Promise<UploadOk | UploadErr> {
   if (item.durationSeconds != null) {
     fd.append('duration_seconds', String(item.durationSeconds));
   }
+  if (item.projectId) {
+    fd.append('project_id', item.projectId);
+  }
 
   let res: Response;
   try {
@@ -118,6 +121,7 @@ export async function saveAndUpload(input: {
   blob: Blob;
   mimeType: string;
   durationSeconds: number | null;
+  projectId?: string | null;
 }): Promise<UploadOk | UploadErr> {
   const id = crypto.randomUUID();
   const item: PendingItem = {
@@ -128,6 +132,7 @@ export async function saveAndUpload(input: {
     durationSeconds: input.durationSeconds,
     attempts: 0,
     lastError: null,
+    projectId: input.projectId ?? null,
   };
   await putPending(item);
   notifyPendingChanged();

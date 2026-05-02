@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { createTextCapture } from './actions';
 
-export function TextCapture() {
+export function TextCapture({ projectId }: { projectId?: string | null }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -29,6 +29,7 @@ export function TextCapture() {
         rows={8}
         placeholder={'Type a capture. Start with "idea:", "problem:", "observation:", or "research:" to skip classification.'}
       />
+      {projectId && <input type="hidden" name="project_id" value={projectId} />}
 
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 

@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Titlebar } from './Titlebar';
 import { InspectorRouter, type InspectorContext } from './InspectorRouter';
-import { CaptureModal, type CaptureTab } from '@/components/capture/CaptureModal';
+import {
+  CaptureModal,
+  type CaptureTab,
+  type ModalProject,
+} from '@/components/capture/CaptureModal';
 import type { Theme } from '@/lib/theme';
 
 const INSPECTOR_KEY = 'forge_inspector_open';
@@ -12,11 +16,14 @@ export function AppShell({
   email,
   theme,
   inspectorCtx,
+  modalProjects,
   children,
 }: {
   email: string;
   theme: Theme;
   inspectorCtx: InspectorContext;
+  /** Active projects to populate the capture modal's project picker. */
+  modalProjects: ModalProject[];
   children: ReactNode;
 }) {
   // Inspector is open by default on desktop; persists across sessions via
@@ -128,7 +135,12 @@ export function AppShell({
           onClick={closeSidebar}
         />
       )}
-      <CaptureModal open={captureOpen} initialTab={captureTab} onClose={closeCapture} />
+      <CaptureModal
+        open={captureOpen}
+        initialTab={captureTab}
+        onClose={closeCapture}
+        projects={modalProjects}
+      />
     </div>
   );
 }

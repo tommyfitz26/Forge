@@ -140,6 +140,16 @@ export async function POST(req: NextRequest) {
   const hasValidClientDuration =
     clientDuration !== null && Number.isFinite(clientDuration) && clientDuration >= 0;
 
+  // Optional project picker value from the modal. Validated as a UUID on the
+  // server — bad values are silently dropped so a malformed shortcut payload
+  // never blocks a capture from saving.
+  const projectIdRaw = formData.get('project_id');
+  const projectId =
+    typeof projectIdRaw === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectIdRaw)
+      ? projectIdRaw
+      : undefined;
+
   const file = audio;
   const declaredType = baseMime(file.type || req.headers.get('content-type'));
   if (!MIME_ALLOWLIST.has(declaredType)) {
@@ -204,6 +214,7 @@ export async function POST(req: NextRequest) {
         research_status: 'skipped',
         // Phase 5.6 — empty-transcript audio still belongs in Library Audio.
         media_kind: 'voice',
+        ...(projectId ? { project_id: projectId } : {}),
       })
       .select('id')
       .single();
@@ -225,6 +236,7 @@ export async function POST(req: NextRequest) {
       // as research; otherwise Stream. The shelf decision is made at read
       // time from (kind, media_kind).
       mediaKind: 'voice',
+      ...(projectId ? { projectId } : {}),
     });
     // Phase 5.3 — schedule AI link suggestions after the response is sent.
     after(() => scheduleLinkSuggestions(userId, 'capture', result.id));
