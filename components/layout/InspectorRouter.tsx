@@ -50,6 +50,13 @@ export type InspectorContext = {
     byKind: { journal_entry: number; thread: number; project: number };
     oldestDays: number;
   };
+  library: {
+    total: number;
+    audio: number;
+    visual: number;
+    text: number;
+    process: number;
+  };
 };
 
 /**
@@ -200,6 +207,25 @@ function panelFor(pathname: string, ctx: InspectorContext) {
           <InspStat k="problem" v={String(ctx.threads.byKind.problem)} />
           <InspStat k="observation" v={String(ctx.threads.byKind.observation)} />
           <InspStat k="research" v={String(ctx.threads.byKind.research)} />
+        </InspSection>
+      </>
+    );
+  }
+
+  if (pathname === '/library') {
+    const lib = ctx.library;
+    return (
+      <>
+        <InspSection>
+          <InspHeading title="Library" sub="Reference material, kept" />
+          <InspStat k="Total" v={String(lib.total)} />
+        </InspSection>
+        <InspSection>
+          <InspLabel>By shelf</InspLabel>
+          <InspStat k="Audio" v={String(lib.audio)} />
+          <InspStat k="Visual" v={String(lib.visual)} />
+          <InspStat k="Text" v={String(lib.text)} />
+          <InspStat k="Process" v={String(lib.process)} />
         </InspSection>
       </>
     );

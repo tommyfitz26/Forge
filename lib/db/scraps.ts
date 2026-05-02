@@ -13,6 +13,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
+import { STREAM_KIND_IN, STREAM_MEDIA_IN } from '@/lib/capture/buckets';
 import type { CaptureKind, CaptureState } from '@/lib/capture/kinds';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,12 +34,15 @@ export type Scrap = {
 
 export async function listScraps(limit = 200): Promise<Scrap[]> {
   const supabase = await untypedSupabase();
+  // Phase 5.6 — Scraps belongs to the Stream side of the Stream/Library
+  // split. Photos, web clips, and research-kind captures live on /library
+  // even when they're stuck in `raw` state.
   const { data, error } = await supabase
     .from('captures')
-    // is_project + project_id are 4.3.1 columns; cast to keep generated types
-    // happy until db:types is re-run.
     .select('id, title, content, kind, state, created_at, is_project, project_id')
     .eq('state', 'raw')
+    .in('kind', STREAM_KIND_IN)
+    .in('media_kind', STREAM_MEDIA_IN)
     .or('is_project.is.null,is_project.eq.false')
     .is('project_id', null)
     .order('created_at', { ascending: false })
@@ -74,6 +78,8 @@ export async function scrapsCount(): Promise<number> {
     .from('captures')
     .select('id', { count: 'exact', head: true })
     .eq('state', 'raw')
+    .in('kind', STREAM_KIND_IN)
+    .in('media_kind', STREAM_MEDIA_IN)
     .or('is_project.is.null,is_project.eq.false')
     .is('project_id', null);
   if (error) {

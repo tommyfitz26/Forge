@@ -202,6 +202,8 @@ export async function POST(req: NextRequest) {
         source,
         audio_duration_seconds: duration,
         research_status: 'skipped',
+        // Phase 5.6 — empty-transcript audio still belongs in Library Audio.
+        media_kind: 'voice',
       })
       .select('id')
       .single();
@@ -219,6 +221,10 @@ export async function POST(req: NextRequest) {
       source,
       audioDurationSeconds: duration,
       originalTranscript: transcript.text,
+      // Phase 5.6 — voice captures bucket into Library Audio when classified
+      // as research; otherwise Stream. The shelf decision is made at read
+      // time from (kind, media_kind).
+      mediaKind: 'voice',
     });
     // Phase 5.3 — schedule AI link suggestions after the response is sent.
     after(() => scheduleLinkSuggestions(userId, 'capture', result.id));
