@@ -57,6 +57,12 @@ export type InspectorContext = {
     text: number;
     process: number;
   };
+  atlas: {
+    total: number;
+    person: number;
+    place: number;
+    thing: number;
+  };
 };
 
 /**
@@ -227,6 +233,32 @@ function panelFor(pathname: string, ctx: InspectorContext) {
           <InspStat k="Text" v={String(lib.text)} />
           <InspStat k="Process" v={String(lib.process)} />
         </InspSection>
+      </>
+    );
+  }
+
+  if (pathname === '/atlas' || pathname.startsWith('/atlas/')) {
+    const atlas = ctx.atlas;
+    return (
+      <>
+        <InspSection>
+          <InspHeading title="Atlas" sub="People, places, things" />
+          <InspStat k="Total" v={String(atlas.total)} />
+        </InspSection>
+        <InspSection>
+          <InspLabel>By kind</InspLabel>
+          <InspStat k="People" v={String(atlas.person)} />
+          <InspStat k="Places" v={String(atlas.place)} />
+          <InspStat k="Things" v={String(atlas.thing)} />
+        </InspSection>
+        {atlas.total === 0 && (
+          <InspSection>
+            <InspEmpty>
+              Capture something that names a person, place, or product —
+              entities surface here automatically.
+            </InspEmpty>
+          </InspSection>
+        )}
       </>
     );
   }

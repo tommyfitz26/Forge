@@ -23,6 +23,7 @@ const CRUMB_MAP: Record<string, [string, string]> = {
   '/capture': ['Capture', ''],
   '/settings': ['Settings', ''],
   '/library': ['Library', ''],
+  '/atlas': ['Atlas', ''],
 };
 
 function deriveCrumb(pathname: string): [string, string] {
@@ -39,6 +40,9 @@ function deriveCrumb(pathname: string): [string, string] {
   if (pathname.startsWith('/tags/')) {
     const t = pathname.split('/')[2] ?? '';
     return ['Tags', `#${t}`];
+  }
+  if (pathname.startsWith('/atlas/')) {
+    return ['Atlas', 'entity'];
   }
   return ['Forge', ''];
 }

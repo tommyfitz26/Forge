@@ -5,6 +5,7 @@ import { parsePrefix, heuristicTitle } from './parse';
 import { initialResearchStatus, type CaptureKind } from './kinds';
 import { runTask } from '@/lib/ai/run';
 import { enqueueResearch } from '@/lib/research/enqueue';
+import { persistEntitiesAndMentions, type ExtractedEntity } from '@/lib/atlas/persist';
 import { logger } from '@/lib/logger';
 
 export type CaptureSource = 'web' | 'shortcut' | 'siri' | 'widget';
@@ -57,6 +58,8 @@ export async function persistCapture(
   let kind: CaptureKind;
   let title: string;
   let classifierUsed = false;
+  // Phase 5.7 — entities surface from the same classify call.
+  let extractedEntities: ExtractedEntity[] = [];
   if (prefix.matched) {
     kind = prefix.kind;
     title = heuristicTitle(cleanedContent);
@@ -66,6 +69,7 @@ export async function persistCapture(
       const result = await runTask('classify_capture', { content: cleanedContent });
       kind = result.kind;
       title = result.title.trim() || heuristicTitle(cleanedContent);
+      extractedEntities = result.entities;
     } catch (err) {
       logger.warn('classify.fallback', {
         err: err instanceof Error ? err.message : String(err),
@@ -121,7 +125,21 @@ export async function persistCapture(
     prefixMatched: prefix.matched,
     classifierUsed,
     hasAudio: input.audioDurationSeconds != null,
+    entityCount: extractedEntities.length,
   });
+
+  // Phase 5.7 — write entities + mentions for Atlas. Awaited (cheap;
+  // single-digit ms at v1 volumes) so the rows land before any caller
+  // navigates to a page that might query Atlas. Errors are swallowed
+  // inside the helper.
+  if (extractedEntities.length > 0) {
+    await persistEntitiesAndMentions(
+      supabase,
+      input.userId,
+      data.id,
+      extractedEntities,
+    );
+  }
 
   // SPEC §4.3 — auto-enqueue research for idea/research captures.
   // Awaited because Vercel can shut the function down right after the response
