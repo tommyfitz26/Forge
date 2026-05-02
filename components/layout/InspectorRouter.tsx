@@ -263,6 +263,19 @@ function panelFor(pathname: string, ctx: InspectorContext) {
     );
   }
 
+  if (pathname === '/map') {
+    return (
+      <InspSection>
+        <InspHeading title="Map" sub="How it's all connected" />
+        <InspEmpty>
+          Lanes view groups by kind — hover any item to highlight everything
+          it connects to across the columns. Switch to Graph for the
+          force-directed view (drag, scroll-zoom, click-to-open).
+        </InspEmpty>
+      </InspSection>
+    );
+  }
+
   if (pathname === '/scraps') {
     return (
       <InspSection>

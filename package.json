@@ -27,6 +27,7 @@
     "@upstash/qstash": "^2.10.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "d3-force": "^3.0.0",
     "date-fns": "^4.1.0",
     "lucide-react": "^1.11.0",
     "marked": "^18.0.2",
@@ -44,6 +45,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",
+    "@types/d3-force": "^3.0.10",
     "@types/node": "^22.10.5",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
