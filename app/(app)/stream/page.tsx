@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { pinnedSetForOwner } from '@/lib/db/pins';
+import { STREAM_KIND_IN, STREAM_MEDIA_IN } from '@/lib/capture/buckets';
 import type { CaptureKind, CaptureState } from '@/lib/capture/kinds';
 import { StreamRows, type StreamRowData } from './StreamRows';
 
@@ -9,13 +10,19 @@ const RECENT_LIMIT = 50;
 
 export default async function StreamPage() {
   const supabase = await createClient();
+  // Phase 5.6 — Stream and Library are mutually exclusive. Stream shows
+  // problem/idea/observation captures whose media is note or voice (not
+  // photo or web clip). Web clips, photos, and any kind=research go to
+  // /library.
   const [{ data }, pinned] = await Promise.all([
     supabase
       .from('captures')
       // is_project + project_id are Phase 4.3.1 columns. Cast the result row
       // since the generated db.ts hasn't picked them up yet.
-      .select('id, title, content, kind, state, created_at, is_project, project_id')
+      .select('id, title, content, kind, state, created_at, is_project, project_id, media_kind')
       .neq('state', 'archived')
+      .in('kind', STREAM_KIND_IN)
+      .in('media_kind', STREAM_MEDIA_IN)
       .order('created_at', { ascending: false })
       .limit(RECENT_LIMIT),
     pinnedSetForOwner(),

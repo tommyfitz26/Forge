@@ -39,6 +39,7 @@ export async function createTextCapture(formData: FormData): Promise<CreateResul
       userId: user.id,
       content: parsed.data.content,
       source: 'web',
+      mediaKind: 'note',
     });
     id = result.id;
   } catch {
@@ -90,6 +91,8 @@ export async function createWebClipCapture(formData: FormData): Promise<CreateRe
       userId: user.id,
       content,
       source: 'web',
+      mediaKind: 'clip',
+      sourceUrl: parsed.data.url,
     });
     id = result.id;
   } catch {
@@ -145,6 +148,8 @@ export async function createPhotoCapture(formData: FormData): Promise<CreateResu
         content: '',
         source: 'web',
         research_status: 'skipped',
+        // Phase 5.6 — bucket into Library Visual shelf.
+        media_kind: 'photo',
       })
       .select('id')
       .single();
@@ -159,6 +164,7 @@ export async function createPhotoCapture(formData: FormData): Promise<CreateResu
         userId: user.id,
         content: caption,
         source: 'web',
+        mediaKind: 'photo',
       });
       captureId = result.id;
     } catch (err) {

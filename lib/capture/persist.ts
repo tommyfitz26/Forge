@@ -21,6 +21,14 @@ export type PersistInput = {
    * For text, `content` itself becomes `original_transcript`.
    */
   originalTranscript?: string;
+  /**
+   * Phase 5.6 — drives the Library shelf bucketing. 'note' for plain text,
+   * 'voice' for audio, 'photo' for image captures, 'clip' for web clips.
+   * Defaults to 'note' (the schema default) when omitted.
+   */
+  mediaKind?: 'note' | 'voice' | 'photo' | 'clip';
+  /** Optional URL the user clipped — populated only on web-clip captures. */
+  sourceUrl?: string;
 };
 
 export type PersistResult = { id: string; kind: CaptureKind };
@@ -75,19 +83,25 @@ export async function persistCapture(
       ? Math.round(input.audioDurationSeconds)
       : null;
 
+  // Phase 5.6 — media_kind drives Library shelf bucketing. Caller passes
+  // explicitly when known; defaults to 'note' (the schema default).
+  const baseRow = {
+    user_id: input.userId,
+    kind,
+    state: 'raw' as const,
+    title,
+    content: cleanedContent,
+    original_transcript: input.originalTranscript ?? raw,
+    source: input.source,
+    audio_duration_seconds: durationSeconds,
+    research_status: initialResearchStatus(kind),
+    ...(input.mediaKind ? { media_kind: input.mediaKind } : {}),
+    ...(input.sourceUrl ? { source_url: input.sourceUrl } : {}),
+  };
+
   const { data, error } = await supabase
     .from('captures')
-    .insert({
-      user_id: input.userId,
-      kind,
-      state: 'raw',
-      title,
-      content: cleanedContent,
-      original_transcript: input.originalTranscript ?? raw,
-      source: input.source,
-      audio_duration_seconds: durationSeconds,
-      research_status: initialResearchStatus(kind),
-    })
+    .insert(baseRow)
     .select('id')
     .single();
 

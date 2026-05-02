@@ -11,6 +11,7 @@ import {
   PenLine,
   AlignLeft,
   ScrollText,
+  Library as LibraryIcon,
   Hash,
   Lightbulb,
   CircleAlert,
@@ -60,6 +61,7 @@ const GROUPS: Group[] = [
 const WORKSHOP_FOOTER: Bucket[] = [
   { label: 'Journal', href: '/journal', icon: PenLine },
   { label: 'Threads', href: '/threads', icon: AlignLeft },
+  { label: 'Library', href: '/library', icon: LibraryIcon },
   { label: 'Scraps', href: '/scraps', icon: ScrollText },
 ];
 
