@@ -102,6 +102,7 @@ async function main() {
 
   const token = process.env.QSTASH_TOKEN;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const baseUrl = process.env.QSTASH_URL;
   const tz = process.env.APP_SCHEDULE_TZ ?? 'America/New_York';
 
   if (!token) {
@@ -112,8 +113,17 @@ async function main() {
     console.error('Missing NEXT_PUBLIC_APP_URL. Add it to .env.local and re-run.');
     process.exit(1);
   }
+  if (!baseUrl) {
+    console.error(
+      'Missing QSTASH_URL. The SDK\'s default endpoint can land in a region\n' +
+        'your account isn\'t in (you saw "user not found in this region").\n' +
+        'Copy the value from your Vercel env or QStash console — it looks like\n' +
+        'https://qstash.upstash.io — and add it to .env.local.',
+    );
+    process.exit(1);
+  }
 
-  const client = new Client({ token });
+  const client = new Client({ token, baseUrl });
   const desired = buildDesiredSchedules(appUrl, tz);
 
   console.log(`\nQStash schedule sync — target: ${appUrl}`);
