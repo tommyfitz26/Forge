@@ -71,7 +71,8 @@ export async function listMentionsFor(
   const { data: caps } = await supabase
     .from('captures')
     .select('id, title, kind, state, content, created_at')
-    .in('id', captureIds);
+    .in('id', captureIds)
+    .is('deleted_at', null);
 
   const capMap = new Map(
     ((caps ?? []) as Array<{

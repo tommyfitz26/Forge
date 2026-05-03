@@ -63,6 +63,7 @@ export async function listLibraryCaptures(): Promise<LibraryItem[]> {
     .from('captures')
     .select('id, title, content, kind, state, created_at, media_kind, source_url')
     .neq('state', 'archived')
+    .is('deleted_at', null)
     .or('media_kind.in.(photo,clip),kind.eq.research')
     .order('created_at', { ascending: false })
     .limit(500);

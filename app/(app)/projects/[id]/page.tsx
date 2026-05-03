@@ -37,6 +37,7 @@ import { PostSaveAutoRefresh } from '@/components/links/PostSaveAutoRefresh';
 import { NextStepsPanel } from '@/components/projects/NextStepsPanel';
 import { PartsList } from '@/components/projects/PartsList';
 import { DeadlinesList } from '@/components/projects/DeadlinesList';
+import { ProjectActions } from '@/components/projects/ProjectActions';
 import type { CaptureKind } from '@/lib/capture/kinds';
 
 type Params = Promise<{ id: string }>;
@@ -134,10 +135,13 @@ export default async function ProjectDetail({
   return (
     <div className="space-y-2">
       <PostSaveAutoRefresh />
-      <Link href="/workshop" className="forge-detail__back">
-        <ArrowLeft size={12} />
-        Workshop
-      </Link>
+      <div className="forge-detail__topbar">
+        <Link href="/workshop" className="forge-detail__back">
+          <ArrowLeft size={12} />
+          Workshop
+        </Link>
+        <ProjectActions projectId={project.id} status={project.status} />
+      </div>
 
       {/* Hero */}
       <div className="forge-proj-hero">

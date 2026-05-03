@@ -57,6 +57,9 @@ export default async function CaptureDetail({
       'id, title, kind, state, content, created_at, updated_at, archive_reason, source, research_status, is_project, project_id',
     )
     .eq('id', id)
+    // deleted_at is in 5.11 — string filter avoids the typed-builder
+    // until `pnpm db:types` regenerates after the migration.
+    .filter('deleted_at', 'is', null)
     .single();
 
   if (error || !capture) {

@@ -110,6 +110,7 @@ export async function listPinnedCards(): Promise<PinnedCard[]> {
           .from('captures')
           .select('id, title, kind, content')
           .in('id', buckets.capture)
+          .is('deleted_at', null)
       : { data: [] },
     buckets.project.length
       ? supabase
@@ -141,6 +142,7 @@ export async function listPinnedCards(): Promise<PinnedCard[]> {
         .from('captures')
         .select('id, title')
         .in('id', threadCaptureIds)
+        .is('deleted_at', null)
     : { data: [] as Array<{ id: string; title: string }> };
   const threadCaptureTitle = new Map(
     ((threadCaptureRows ?? []) as Array<{ id: string; title: string }>).map((c) => [c.id, c.title]),

@@ -22,7 +22,7 @@ async function untypedSupabase(): Promise<any> {
   return createClient();
 }
 
-export const TRASH_KINDS = ['journal_entry', 'thread', 'project'] as const;
+export const TRASH_KINDS = ['journal_entry', 'thread', 'project', 'capture'] as const;
 export type TrashKind = (typeof TRASH_KINDS)[number];
 
 export type TrashItem = {
@@ -68,7 +68,7 @@ export async function listTrash(): Promise<TrashItem[]> {
   const cutoff = new Date(Date.now() - WINDOW_DAYS * 86_400_000).toISOString();
   const now = Date.now();
 
-  const [journalRes, threadsRes, projectsRes] = await Promise.all([
+  const [journalRes, threadsRes, projectsRes, capturesRes] = await Promise.all([
     supabase
       .from('journal_entries')
       .select('id, written_at, body, deleted_at')
@@ -90,6 +90,13 @@ export async function listTrash(): Promise<TrashItem[]> {
       .gte('deleted_at', cutoff)
       .order('deleted_at', { ascending: false })
       .limit(200),
+    supabase
+      .from('captures')
+      .select('id, title, content, kind, deleted_at')
+      .not('deleted_at', 'is', null)
+      .gte('deleted_at', cutoff)
+      .order('deleted_at', { ascending: false })
+      .limit(200),
   ]);
 
   if (journalRes.error) {
@@ -100,6 +107,9 @@ export async function listTrash(): Promise<TrashItem[]> {
   }
   if (projectsRes.error) {
     logger.error('trash.projects.failed', { err: projectsRes.error.message });
+  }
+  if (capturesRes.error) {
+    logger.error('trash.captures.failed', { err: capturesRes.error.message });
   }
 
   const items: TrashItem[] = [];
@@ -173,6 +183,26 @@ export async function listTrash(): Promise<TrashItem[]> {
     });
   }
 
+  for (const c of (capturesRes.data ?? []) as Array<{
+    id: string;
+    title: string;
+    content: string | null;
+    kind: string;
+    deleted_at: string;
+  }>) {
+    const age = ageDays(c.deleted_at, now);
+    items.push({
+      kind: 'capture',
+      id: c.id,
+      title: c.title || `(untitled ${c.kind})`,
+      preview: previewLine(c.content),
+      deleted_at: c.deleted_at,
+      ageDays: age,
+      daysLeft: Math.max(0, WINDOW_DAYS - age),
+      href: null,
+    });
+  }
+
   // Sort unified list by deleted_at desc.
   items.sort((a, b) => b.deleted_at.localeCompare(a.deleted_at));
   return items;
@@ -188,6 +218,7 @@ export async function trashCount(): Promise<{
     journal_entry: 0,
     thread: 0,
     project: 0,
+    capture: 0,
   };
   let oldest = 0;
   for (const it of items) {

@@ -1,14 +1,16 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { PenLine, AlignLeft, Hammer, RotateCcw, X } from 'lucide-react';
+import { PenLine, AlignLeft, Hammer, ScrollText, RotateCcw, X } from 'lucide-react';
 import {
   untrashJournalEntry,
   untrashThread,
   untrashProject,
+  untrashCapture,
   purgeJournalEntry,
   purgeThread,
   purgeProject,
+  purgeCapture,
 } from '@/app/(app)/trash/actions';
 import type { TrashItem, TrashKind } from '@/lib/db/trash';
 
@@ -16,12 +18,14 @@ const ICONS: Record<TrashKind, typeof PenLine> = {
   journal_entry: PenLine,
   thread: AlignLeft,
   project: Hammer,
+  capture: ScrollText,
 };
 
 const KIND_LABEL: Record<TrashKind, string> = {
   journal_entry: 'journal',
   thread: 'thread',
   project: 'project',
+  capture: 'capture',
 };
 
 export function TrashRow({ item }: { item: TrashItem }) {
@@ -41,6 +45,9 @@ export function TrashRow({ item }: { item: TrashItem }) {
         case 'project':
           await untrashProject(item.id);
           break;
+        case 'capture':
+          await untrashCapture(item.id);
+          break;
       }
     });
   }
@@ -56,6 +63,9 @@ export function TrashRow({ item }: { item: TrashItem }) {
           break;
         case 'project':
           await purgeProject(item.id);
+          break;
+        case 'capture':
+          await purgeCapture(item.id);
           break;
       }
     });

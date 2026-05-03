@@ -23,6 +23,7 @@ export default async function ArchivePage() {
     .from('captures')
     .select('id, title, kind, created_at, archive_reason')
     .eq('state', 'archived')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
   const captures = data ?? [];

@@ -199,6 +199,7 @@ async function fetchCaptures(supabase: any, cutoff: string | null) {
     .from('captures')
     .select('id, title, created_at')
     .neq('state', 'archived')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(500);
   if (cutoff) query = query.gte('created_at', cutoff);

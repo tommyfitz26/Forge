@@ -113,7 +113,11 @@ export async function listPendingFor(
 
   const [capRows, projRows, thrRows, jourRows] = await Promise.all([
     buckets.capture.length
-      ? supabase.from('captures').select('id, title').in('id', buckets.capture)
+      ? supabase
+          .from('captures')
+          .select('id, title')
+          .in('id', buckets.capture)
+          .is('deleted_at', null)
       : { data: [] },
     buckets.project.length
       ? supabase.from('projects').select('id, title').in('id', buckets.project)
@@ -136,7 +140,11 @@ export async function listPendingFor(
   const thrRowsData = (thrRows as { data: Array<{ id: string; capture_id: string }> }).data ?? [];
   const threadCapIds = thrRowsData.map((t) => t.capture_id);
   const { data: thrCapRows } = threadCapIds.length
-    ? await supabase.from('captures').select('id, title').in('id', threadCapIds)
+    ? await supabase
+        .from('captures')
+        .select('id, title')
+        .in('id', threadCapIds)
+        .is('deleted_at', null)
     : { data: [] as Array<{ id: string; title: string }> };
   const threadCapTitle = new Map(
     ((thrCapRows ?? []) as Array<{ id: string; title: string }>).map((c) => [c.id, c.title]),

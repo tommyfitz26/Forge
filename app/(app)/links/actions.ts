@@ -165,6 +165,7 @@ export async function searchLinkTargets(
       .select('id, title')
       .ilike('title', pattern)
       .neq('state', 'archived')
+      .is('deleted_at', null)
       .limit(LIMIT_PER_KIND),
     supabase
       .from('projects')
@@ -202,6 +203,7 @@ export async function searchLinkTargets(
       .from('captures')
       .select('id, title')
       .in('id', captureIds)
+      .is('deleted_at', null)
       .ilike('title', pattern);
     const capTitleMap = new Map(
       ((capRows ?? []) as Array<{ id: string; title: string }>).map((c) => [c.id, c.title]),
