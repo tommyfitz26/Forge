@@ -13,7 +13,16 @@ export function getQStash(): Client {
     throw new Error('QSTASH_TOKEN is not set — cannot publish jobs.');
   }
   if (!_client) {
-    _client = new Client({ token: env.QSTASH_TOKEN });
+    // Pass baseUrl explicitly when configured. The SDK's default endpoint can
+    // resolve to a region the account isn't in (the script saw a "user not
+    // found in this region (eu-central-1)" error from the global default
+    // when QSTASH_URL was unset). Reading from process.env so the SDK's
+    // own fallback still applies when the env var is genuinely missing.
+    const baseUrl = process.env.QSTASH_URL || env.QSTASH_URL;
+    _client = new Client({
+      token: env.QSTASH_TOKEN,
+      ...(baseUrl ? { baseUrl } : {}),
+    });
   }
   return _client;
 }
