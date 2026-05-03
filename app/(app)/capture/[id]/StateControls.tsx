@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowUpRight, AlignLeft } from 'lucide-react';
+import { ArrowUpRight, AlignLeft, Trash2 } from 'lucide-react';
 import type { CaptureKind, CaptureState } from '@/lib/capture/kinds';
 import { PromoteToProjectModal } from '@/components/projects/PromoteToProjectModal';
 import { createThread } from '@/app/(app)/threads/actions';
+import { trashCapture } from '@/app/(app)/trash/actions';
 import {
   archiveCapture,
   unarchiveCapture,
@@ -33,9 +35,11 @@ export function StateControls({
   projectId: string | null;
   threadId: string | null;
 }) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [showArchive, setShowArchive] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
   const [promoteOpen, setPromoteOpen] = useState(false);
 
   if (state === 'archived') {
@@ -136,7 +140,44 @@ export function StateControls({
         >
           Archive
         </button>
+        <button
+          type="button"
+          className="forge-btn forge-btn--danger"
+          disabled={isPending}
+          onClick={() => setShowTrash((s) => !s)}
+        >
+          <Trash2 size={14} /> Move to trash
+        </button>
       </div>
+
+      {showTrash && (
+        <div className="forge-confirm forge-confirm--danger">
+          <span>
+            Move this capture to trash? It auto-deletes after 30 days; you can
+            restore it from /trash before then.
+          </span>
+          <button
+            type="button"
+            className="forge-btn forge-btn--danger"
+            disabled={isPending}
+            onClick={() =>
+              startTransition(async () => {
+                await trashCapture(id);
+                router.push('/stream');
+              })
+            }
+          >
+            Yes, move to trash
+          </button>
+          <button
+            type="button"
+            className="forge-btn forge-btn--ghost"
+            onClick={() => setShowTrash(false)}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       <PromoteToProjectModal
         open={promoteOpen}

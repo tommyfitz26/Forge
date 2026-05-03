@@ -101,12 +101,13 @@ export async function captureForProject(projectId: string): Promise<{
     .maybeSingle();
   const seedId = (proj as { seed_capture_id: string | null } | null)?.seed_capture_id ?? null;
 
-  // Captures filed to this project. Excludes archived.
+  // Captures filed to this project. Excludes archived + trashed.
   const { data, error } = await supabase
     .from('captures')
     .select('id, title, kind, state, created_at, is_project')
     .eq('project_id', projectId)
     .neq('state', 'archived')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(50);
   if (error) {

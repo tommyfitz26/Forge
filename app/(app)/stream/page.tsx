@@ -21,6 +21,7 @@ export default async function StreamPage() {
       // since the generated db.ts hasn't picked them up yet.
       .select('id, title, content, kind, state, created_at, is_project, project_id, media_kind')
       .neq('state', 'archived')
+      .is('deleted_at', null)
       .in('kind', STREAM_KIND_IN)
       .in('media_kind', STREAM_MEDIA_IN)
       .order('created_at', { ascending: false })

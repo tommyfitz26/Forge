@@ -8,6 +8,7 @@ import { ThreadSectionEditor } from '@/components/threads/ThreadSectionEditor';
 import { ConnectionsPanel } from '@/components/links/ConnectionsPanel';
 import { SuggestionsPanel } from '@/components/links/SuggestionsPanel';
 import { PostSaveAutoRefresh } from '@/components/links/PostSaveAutoRefresh';
+import { ThreadActions } from '@/components/threads/ThreadActions';
 import type { CaptureKind } from '@/lib/capture/kinds';
 
 type Params = Promise<{ id: string }>;
@@ -46,10 +47,13 @@ export default async function ThreadDetail({ params }: { params: Params }) {
   return (
     <div className="forge-thread">
       <PostSaveAutoRefresh />
-      <Link href="/threads" className="forge-thread__back">
-        <ArrowLeft size={12} />
-        Threads
-      </Link>
+      <div className="forge-detail__topbar">
+        <Link href="/threads" className="forge-thread__back">
+          <ArrowLeft size={12} />
+          Threads
+        </Link>
+        <ThreadActions threadId={thread.id} status={thread.status} />
+      </div>
 
       <div className="forge-thread__meta">
         <span className={`forge-pill forge-pill--${thread.kind as CaptureKind}`}>{thread.kind}</span>

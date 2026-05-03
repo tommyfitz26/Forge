@@ -47,7 +47,7 @@ export type InspectorContext = {
   };
   trash: {
     total: number;
-    byKind: { journal_entry: number; thread: number; project: number };
+    byKind: { journal_entry: number; thread: number; project: number; capture: number };
     oldestDays: number;
   };
   library: {
@@ -333,6 +333,7 @@ function panelFor(pathname: string, ctx: InspectorContext) {
         {t.total > 0 && (
           <InspSection>
             <InspLabel>By kind</InspLabel>
+            <InspStat k="Captures" v={String(t.byKind.capture)} />
             <InspStat k="Journal" v={String(t.byKind.journal_entry)} />
             <InspStat k="Threads" v={String(t.byKind.thread)} />
             <InspStat k="Projects" v={String(t.byKind.project)} />

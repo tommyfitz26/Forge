@@ -28,8 +28,8 @@ export default async function TrashPage() {
             <Trash2 size={32} className="mx-auto" />
           </div>
           <div className="forge-empty__msg">
-            Trash is empty. Soft-deleted journal entries, threads, and projects
-            land here for 30 days before they&apos;re purged.
+            Trash is empty. Soft-deleted captures, journal entries, threads,
+            and projects land here for 30 days before they&apos;re purged.
           </div>
         </div>
       ) : (

@@ -31,6 +31,7 @@ export default async function TodayPage() {
       .from('captures')
       .select('id, title, kind, created_at')
       .neq('state', 'archived')
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(RECENT_CAPTURES_LIMIT),
     supabase.auth.getUser(),

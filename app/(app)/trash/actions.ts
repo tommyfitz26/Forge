@@ -66,6 +66,25 @@ export async function untrashProject(id: string): Promise<void> {
   revalidatePath(`/projects/${validId}`);
 }
 
+export async function untrashCapture(id: string): Promise<void> {
+  const { id: validId } = IdSchema.parse({ id });
+  await ensureAuthed();
+  const supabase = await untypedSupabase();
+  const { error } = await supabase
+    .from('captures')
+    .update({ deleted_at: null, updated_at: new Date().toISOString() })
+    .eq('id', validId);
+  if (error) {
+    logger.error('trash.untrashCapture.failed', { id: validId, err: error.message });
+    throw new Error('Could not restore capture.');
+  }
+  revalidatePath('/trash');
+  revalidatePath('/stream');
+  revalidatePath('/scraps');
+  revalidatePath('/library');
+  revalidatePath(`/capture/${validId}`);
+}
+
 // ---------------------------------------------------------------------------
 // Purge — hard delete
 // ---------------------------------------------------------------------------
@@ -107,6 +126,21 @@ export async function purgeProject(id: string): Promise<void> {
   revalidatePath('/workshop');
 }
 
+export async function purgeCapture(id: string): Promise<void> {
+  const { id: validId } = IdSchema.parse({ id });
+  await ensureAuthed();
+  const supabase = await untypedSupabase();
+  const { error } = await supabase.from('captures').delete().eq('id', validId);
+  if (error) {
+    logger.error('trash.purgeCapture.failed', { id: validId, err: error.message });
+    throw new Error('Could not delete capture.');
+  }
+  revalidatePath('/trash');
+  revalidatePath('/stream');
+  revalidatePath('/scraps');
+  revalidatePath('/library');
+}
+
 // ---------------------------------------------------------------------------
 // Soft-delete (move to trash) — used by future 4.6 context menus.
 // Defined here so the wiring is in place before the menus call them.
@@ -143,6 +177,27 @@ export async function trashProject(id: string): Promise<void> {
   }
   revalidatePath('/workshop');
   revalidatePath(`/projects/${validId}`);
+  revalidatePath('/trash');
+}
+
+export async function trashCapture(id: string): Promise<void> {
+  const { id: validId } = IdSchema.parse({ id });
+  await ensureAuthed();
+  const supabase = await untypedSupabase();
+  const { error } = await supabase
+    .from('captures')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', validId);
+  if (error) {
+    logger.error('trash.trashCapture.failed', { id: validId, err: error.message });
+    throw new Error('Could not move capture to trash.');
+  }
+  revalidatePath('/');
+  revalidatePath('/stream');
+  revalidatePath('/scraps');
+  revalidatePath('/library');
+  revalidatePath('/today');
+  revalidatePath(`/capture/${validId}`);
   revalidatePath('/trash');
 }
 

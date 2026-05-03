@@ -125,6 +125,7 @@ export type Database = {
           audio_duration_seconds: number | null
           content: string
           created_at: string
+          deleted_at: string | null
           id: string
           is_project: boolean
           kind: string
@@ -146,6 +147,7 @@ export type Database = {
           audio_duration_seconds?: number | null
           content: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           is_project?: boolean
           kind: string
@@ -167,6 +169,7 @@ export type Database = {
           audio_duration_seconds?: number | null
           content?: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           is_project?: boolean
           kind?: string

@@ -159,6 +159,7 @@ export async function getWeekData(weekStart: Date): Promise<WeekData> {
       .from('captures')
       .select('id, title, kind, created_at, state')
       .neq('state', 'archived')
+      .is('deleted_at', null)
       .gte('created_at', `${startIso}T00:00:00Z`)
       .lt('created_at', `${endExclusiveIso}T00:00:00Z`)
       .order('created_at', { ascending: true })

@@ -11,9 +11,18 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUpRight, Archive, ExternalLink, Bookmark, BookmarkCheck, Link2 } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Archive,
+  ExternalLink,
+  Bookmark,
+  BookmarkCheck,
+  Link2,
+  Trash2,
+} from 'lucide-react';
 import type { CaptureKind, CaptureState } from '@/lib/capture/kinds';
 import { togglePin } from '@/app/(app)/top-of-mind/actions';
+import { trashCapture } from '@/app/(app)/trash/actions';
 import { LinkPalette } from '@/components/links/LinkPalette';
 import { PromoteToProjectModal } from './PromoteToProjectModal';
 
@@ -173,6 +182,20 @@ export function CaptureContextMenuProvider({ children }: { children: ReactNode }
               <Archive size={14} /> Archive…
             </button>
           )}
+
+          <div className="forge-context-menu__sep" />
+
+          <button
+            type="button"
+            className="forge-context-menu__item"
+            data-destructive="true"
+            onClick={() => {
+              void trashCapture(state.target.id);
+              close();
+            }}
+          >
+            <Trash2 size={14} /> Move to trash
+          </button>
         </div>
       )}
 

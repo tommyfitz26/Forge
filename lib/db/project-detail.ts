@@ -47,7 +47,8 @@ export async function listThreadsForProject(projectId: string): Promise<ProjectT
     .from('captures')
     .select('id, title')
     .eq('project_id', projectId)
-    .neq('state', 'archived');
+    .neq('state', 'archived')
+    .is('deleted_at', null);
   if (capsErr) {
     logger.warn('project.threads.captures.failed', { projectId, err: capsErr.message });
     return [];
@@ -115,6 +116,7 @@ export async function listReferencesForProject(projectId: string): Promise<Proje
     .select('id, title, kind, state, media_kind, source_url, created_at')
     .eq('project_id', projectId)
     .neq('state', 'archived')
+    .is('deleted_at', null)
     .or('media_kind.in.(photo,clip),kind.eq.research')
     .order('created_at', { ascending: false })
     .limit(500);
@@ -175,7 +177,8 @@ export async function listCollaboratorsForProject(
     .from('captures')
     .select('id')
     .eq('project_id', projectId)
-    .neq('state', 'archived');
+    .neq('state', 'archived')
+    .is('deleted_at', null);
   const captureIds = ((caps ?? []) as Array<{ id: string }>).map((c) => c.id);
   if (captureIds.length === 0) return [];
 
@@ -295,6 +298,7 @@ export async function buildProjectTimeline(projectId: string): Promise<TimelineE
     .select('id, title, kind, created_at')
     .eq('project_id', projectId)
     .neq('state', 'archived')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(200);
 
@@ -382,7 +386,8 @@ export async function projectTabCounts(projectId: string): Promise<ProjectTabCou
     .from('captures')
     .select('id', { count: 'exact', head: true })
     .eq('project_id', projectId)
-    .neq('state', 'archived');
+    .neq('state', 'archived')
+    .is('deleted_at', null);
 
   // Refs are a slice of the filed set, so we can compute both with one round
   // trip if we re-pull a tiny projection. Cheaper to call the helper.

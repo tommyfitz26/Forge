@@ -95,6 +95,7 @@ export async function selectCandidates(args: {
       .select('id, title, content, kind, created_at, user_id')
       .eq('user_id', args.ownerId)
       .neq('state', 'archived')
+      .is('deleted_at', null)
       .gte('created_at', cutoff)
       .order('created_at', { ascending: false })
       .limit(PER_KIND_CAP * 3),

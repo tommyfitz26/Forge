@@ -31,6 +31,7 @@ export default async function KindFilterPage({
       .select('id, title, content, kind, state, created_at, is_project, project_id')
       .eq('kind', k)
       .neq('state', 'archived')
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(50),
     pinnedSetForOwner(),
