@@ -1,9 +1,13 @@
 // Phase 5.4 — single source of truth for the registered QStash crons.
-// Used by /settings/health and /settings/jobs to display schedule + status.
+// Used by /settings/health and /settings/jobs to display schedule + status,
+// AND by scripts/register-qstash-schedules.ts to apply this registry to the
+// live QStash account. Edit this file → run `pnpm jobs:sync` to push the
+// changes to QStash.
 //
-// The actual schedules are registered in the Upstash QStash console — this
-// file is informational only. If a cron is added/removed there, update here
-// or the dashboards will be wrong.
+// The `nudge` entry is special: its real schedule is two crons (one per slot)
+// because each slot fires a distinct URL. The sync script expands it; the
+// dashboard treats it as one logical job because both slots feed the same
+// `job_runs.job_name`.
 
 export type RegisteredJob = {
   /** Matches `job_runs.job_name`. Some jobs (research_recovery) don't claim
