@@ -1,6 +1,6 @@
 import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
-import { runTask, BudgetExceededError } from '@/lib/ai/run';
+import { runTask, BudgetExceededError, TaskValidationError } from '@/lib/ai/run';
 import { ResearchSchema } from '@/lib/ai/research-schema';
 import { createServiceClient } from '@/lib/supabase/service';
 import { verifyJobRequest, publishJob } from '@/lib/qstash';
@@ -45,6 +45,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: auth.reason }, { status: auth.status });
   }
 
+  // Manual re-trigger escape hatch: when the request is `?force=1`, clear the
+  // dedup state for this week before claiming so the run actually executes
+  // even if a prior run already succeeded. Auth is unchanged — only QStash-
+  // signed (or dev-bearer) requests can hit this route in the first place.
+  const force = req.nextUrl.searchParams.get('force') === '1';
+
   const service = createServiceClient();
   const weekOf = weekOfFor(new Date());
 
@@ -63,6 +69,34 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
   const userId = owner.id;
   const stage1Key = `weekly:${weekOf}:stage1`;
+
+  if (force) {
+    // Wipe both layers: job_runs (Layer B dedup) and weekly_summaries
+    // (Layer A "already sent" short-circuit). Using a LIKE pattern so the
+    // Stage 2 row gets cleared too — Stage 2 uses key `weekly:${weekOf}:stage2`.
+    const { error: jobsErr } = await service
+      .from('job_runs')
+      .delete()
+      .like('idempotency_key', `weekly:${weekOf}:%`);
+    if (jobsErr) {
+      logger.warn('jobs.weekly_review.stage1.force_clear_jobs.failed', {
+        weekOf,
+        err: jobsErr.message,
+      });
+    }
+    const { error: summErr } = await service
+      .from('weekly_summaries')
+      .delete()
+      .eq('user_id', userId)
+      .eq('week_of', weekOf);
+    if (summErr) {
+      logger.warn('jobs.weekly_review.stage1.force_clear_summary.failed', {
+        weekOf,
+        err: summErr.message,
+      });
+    }
+    logger.info('jobs.weekly_review.stage1.forced', { weekOf });
+  }
 
   const claim = await claimJobRun(service, JOB_NAME, stage1Key);
   if (claim.status !== 'claimed') {
@@ -243,6 +277,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       await markJobFailed(service, jobRunId, 'budget_exceeded');
       logger.warn('jobs.weekly_review.stage1.budget_exceeded', { weekOf });
       return NextResponse.json({ status: 'budget_exceeded' });
+    }
+    // Surface Zod issues + a raw-output preview so a schema failure is
+    // diagnosable from Vercel logs without re-running the job.
+    if (err instanceof TaskValidationError) {
+      logger.error('jobs.weekly_review.stage1.schema_failed', {
+        weekOf,
+        task: err.task,
+        issues: err.issues.map((i) => ({
+          path: i.path.join('.'),
+          code: i.code,
+          message: i.message,
+        })),
+        rawPreview: err.raw.slice(0, 2000),
+        rawLen: err.raw.length,
+      });
     }
     const message = err instanceof Error ? err.message : String(err);
     await markJobFailed(service, jobRunId, message);
